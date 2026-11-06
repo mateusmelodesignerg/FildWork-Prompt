@@ -1,9 +1,9 @@
-Fild-Work
+Field-Work
 
 Um prompt gratuito da Layer Web. Cole na sua ferramenta de IA e receba em um único arquivo index.html, sem framework e sem etapa de build.
 
 Como usar
-Abra o Fild-Work.md e copie todo o conteúdo.
+Abra o Field-Work.md e copie todo o conteúdo.
 Cole como uma única mensagem no Claude Code, Cursor, Lovable ou V0.
 Abra o index.html gerado no navegador.
 Troque pelo seu texto, suas cores e sua imagem, mantendo a estrutura.
