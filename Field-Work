@@ -1,0 +1,1276 @@
+# Fieldwork — scroll-driven studio landing page — rebuild command
+
+Build ONE file, `index.html`, no framework, no build step. It is a complete, long landing page (≈7,760px tall at 1440×900) for an independent design studio called **Fieldwork**: a fixed nav, a rounded hero card filled by one uncropped meadow photo with a giant wordmark on the sky, a scroll-scrubbed manifesto, four stat cards, a dark services accordion, three full-height project cards that stack on top of each other while you scroll, a process "staircase" of black bars, a testimonial grid with a logo marquee, and a dark footer with a second giant wordmark. Smooth scroll (Lenis) and GSAP ScrollTrigger drive every motion. Everything below is exact: numbers, never adjectives. Page language: English (`<html lang="en">`).
+
+**Libraries (pinned, nothing else):**
+- GSAP 3.12.5 — `https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js`
+- ScrollTrigger 3.12.5 — `https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js`
+- Lenis 1.1.13 — `https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js` (global `Lenis`)
+- Font: Google Fonts `Inter Tight` weights **400, 500, 600** (`display=swap`), with the two `preconnect` links.
+
+**Assets (Path A, hosted on Cloudflare R2).** Every photo lives under `https://assets.layerweb.com.br/fieldwork/`. Use the exact URLs in section 11. Do not download, rename, recompress, swap or hotlink anything else. There are no fonts or videos on R2; the font comes from Google Fonts.
+
+**Authoritative code.** Appendix A at the end of this document is the exact production file. If prose and appendix ever disagree, the appendix wins. Reproduce it verbatim, then run the self-check (section 15).
+
+---
+
+## 0. Global shell
+- `<!doctype html><html lang="en">`, `<meta charset="utf-8">`, viewport `width=device-width, initial-scale=1, viewport-fit=cover`.
+- `<title>Fieldwork — Independent Design Studio</title>` and an English meta description.
+- Favicon: the Fieldwork icon (section 2) as an SVG data URI, fill `#121212`.
+- `<link rel="preload" as="image">` for `hero-field.jpg`; the hero `<img>` has `fetchpriority="high"`. Every image below the fold has `loading="lazy"`.
+- Reset: `box-sizing: border-box` on everything, zero margin/padding, `body { font: 14px/1.5 "Inter Tight", "Helvetica Neue", Helvetica, Arial, sans-serif; color #121212; background #fff; overflow-x: clip }`, `-webkit-font-smoothing: antialiased`.
+- Lenis CSS hooks: `html.lenis, html.lenis body { height: auto }` and `.lenis.lenis-smooth { scroll-behavior: auto !important }`.
+- The page always starts at the top: `history.scrollRestoration = 'manual'`, `scrollTo(0,0)` at script start, and again on `load` (`lenis.scrollTo(0, {immediate: true})`) when there is no hash.
+- One hidden SVG sprite at the top of `<body>` holds every icon and logo as a `<symbol>`; markup references them with `<use href="#id">`.
+
+## 1. Tokens (exact)
+| token | value | use |
+|---|---|---|
+| `--bg` | `#ffffff` | page |
+| `--ink` | `#121212` | text, black bars, dark buttons |
+| `--ink-2` | `#4b4b4b` | body copy |
+| `--muted` | `#8e8e8e` | indices, roles |
+| `--ghost` | `#c6c6c6` | statement words before reveal, nav "+" |
+| `--soft` | `#f2f2f1` | light cards |
+| `--hero` | `#e8e8e6` | hero card |
+| `--dark` | `#1a1a1b` | services, dark cards, footer |
+| `--line` | `#e3e3e1` | light dividers |
+| `--line-d` | `rgba(255,255,255,.12)` | dark dividers |
+| `--star` | `#f2a516` | rating stars |
+| `--r` / `--r-md` / `--r-sm` | 20px / 16px / 12px | radii |
+| `--edge` | 12px (8px ≤640px) | outer margin of every card and gap between cards |
+| `--pad` | `clamp(20px, 2.6vw, 40px)` (18px ≤640px) | inner padding |
+| `--ease` | `cubic-bezier(.16,1,.3,1)` | every CSS transition |
+
+Type scale: wordmark `clamp(72px, 11.8vw, 200px)` weight 500, line-height .84, tracking −.06em (169.92px at 1440); footer wordmark `clamp(76px, 12.8vw, 210px)` (184.32px at 1440); `.h2` `clamp(32px, 3.3vw, 48px)` weight 400, lh 1.06, tracking −.035em (47.52px); statement `clamp(26px, 2.55vw, 38px)` lh 1.2, tracking −.028em (36.72px); labels 11px uppercase tracking .02em with a 9px muted `(0N)` prefix.
+
+## 1.5 Absolute coordinate table (reference viewport 1440×900, content width 1425 after a 15px scrollbar, scroll 0, all entrance animations finished)
+Boxes are `x, y (document), w, h` in px.
+
+| element | x | y | w | h | z / notes |
+|---|---|---|---|---|---|
+| nav (fixed) | 0 | 0 | 1425 | 64 | z 50 |
+| brand (icon + word) | 28 | 21 | 99 | 23 | icon 18×18, text 15px/500 |
+| hero card | 12 | 76 | 1401 | 934 | radius 20, `aspect-ratio: 2000/1333` (934px tall at 1440) |
+| hero wordmark | 49 | 113 | 672 | 160 | 169.92px |
+| hero aside | 1076 | 113 | 300 | 123 | crew row 26px tall, then 13px copy |
+| hero media | 12 | 76 | 1401 | 934 | `inset: 0` of the card |
+| trust block | 49 | 806 | 640 | 75 | white text over photo |
+| featured card | 1140 | 642 | 236 | 214 | image 150px tall |
+| statement | 499 | 1046 | 876 | 132 | grid column 5 / span 8 |
+| stats row | 12 | 1308 | 1401 | 259 | 4 cards × 341px, gap 12 |
+| services panel | 12 | 1697 | 1401 | 924 | first row open |
+| first service row (open) | 49 | 2006 | 1326 | 220 | closed rows ≈101px |
+| work (3 sticky cards) | 12 | 2633 | 1401 | 2604 | cards at y 2633 / 3505 / 4377, each 1401×860 |
+| process section | 0 | 5237 | 1425 | 805 | |
+| lanes | 49 | 5582 | 1326 | 317 | 4 lanes, gap 8 |
+| step cards | 49 | 5919 | 1326 | 123 | 4 cards, gap 8 |
+| testimonial grid | 12 | 6408 | 1401 | 420 | 4 columns, gap 12 |
+| logo band | 12 | 6880 | 1401 | 77 | |
+| footer | 12 | 7075 | 1401 | 674 | radius 20 |
+| footer wordmark | 49 | 7127 | 729 | 173 | 184.32px |
+| document height | — | — | — | 7761 | |
+
+## 2. Brand (logo, title, favicon)
+- Name: **Fieldwork**, always followed by a `®` rendered as `.sup` (`font-size .42em; vertical-align: top; top .12em` — in the wordmarks `.3em`, `top .16em`, weight 400).
+- Icon (sun on a horizon), viewBox `0 0 24 24`, one colour `currentColor`:
+  ```html
+  <symbol id="i-brand" viewBox="0 0 24 24"><path d="M5 15a7 7 0 0 1 14 0z" fill="currentColor"/><rect x="2" y="17" width="20" height="2.2" rx="1.1" fill="currentColor"/></symbol>
+  ```
+  Rendered 18×18 in the nav and menu, 7px gap to the word. Logo link `aria-label="Fieldwork home"`.
+- DO NOT redraw, outline, gradient or recolour the icon. DO NOT add an icon to the two giant wordmarks.
+
+## 3. Nav — PIXEL CONTRACT
+- `position: fixed; height 64px; padding 0 28px`, flex space-between: brand · links · burger.
+- Links 13px: About + Services + Work + Process + Testimonials. The `+` separators are 13px `#c6c6c6` with horizontal margin `clamp(18px, 3.4vw, 52px)`.
+- Link hover: a text roll — the label slides up 100% of its own box and a copy (`::after content: attr(data-t)`) slides in from below, `.5s var(--ease)`. The `6px 2px` padding lives on the span and its `::after`, never on the clipped `<a>`, so no sliver of the old label stays visible. DO NOT put padding on the overflow-hidden link.
+- Burger: 44×44 button, two 28×1.5px lines 6px apart; on hover the second line becomes 18px wide and shifts 10px right.
+- After 40px of scroll: background `rgba(255,255,255,.78)` + `backdrop-filter: blur(14px)`. Scrolling down past 220px hides it (`translateY(-100%)`, .6s); scrolling up shows it.
+- Links hide below 1100px (burger only).
+- DO NOT give the nav a border or shadow. DO NOT use a pill-shaped nav.
+
+## 4. Fullscreen menu
+Dark panel (`#1a1a1b`), revealed with `clip-path: inset(0 0 100% 0) → inset(0)` in .9s `--ease`. Five links `clamp(44px, 8vw, 104px)`, tracking −.045em, each with a 12px index `01`–`05`; words slide up from `translateY(105%)`. Close button 44px circle, rotates 90° on hover. Esc closes it. Lenis stops while it is open. Clicking a link closes the menu, waits 350ms, then smooth-scrolls to the section.
+
+## 5. Hero — PIXEL CONTRACT
+- Card: margin `76px 12px 0`, radius 20, background `#e8e8e6`, `overflow: hidden; isolation: isolate`.
+- Top row padding `clamp(22px, 2.6vw, 38px) var(--pad) 0`, flex space-between.
+- **Wordmark**: each letter of `Fieldwork` is its own `.ch` span inside one `.mask` (`overflow hidden; padding .06em .02em .04em 0`), then the `®`. `aria-label="Fieldwork"` on the `<h1>`.
+- **Aside** (300px wide, padding-top `clamp(10px,1.4vw,22px)`): crew row — avatar 26px (avatar-04), a 44×1px ink line, two overlapping avatars (avatar-01, avatar-02, −8px overlap, 2px ring in the hero grey), tag `[ Made to last ]` 10px uppercase tracking .06em; then the 13px/1.55 `#4b4b4b` paragraph, max-width 264px.
+- **Media**: the photo is shown whole and uncropped: `inset: 0`, `z-index: -1`, `object-fit: cover` on a card whose `aspect-ratio` is `2000/1333` (the photo's own ratio), so nothing is cut off. DO NOT add any fade, mask or gradient on the top of the photo. Only a faint bottom shade `linear-gradient(to top, rgba(10,14,8,.38) 0%, rgba(10,14,8,0) 30%)` for the white trust text. No scroll or mouse parallax on the photo; it only eases from `scale 1.12` to `1` on entrance. The wordmark and hero copy sit directly on the sky in `#121212`.
+- **Featured card** 236px wide, white, radius 16, padding `6px 6px 0`, shadow `0 24px 50px -24px rgba(0,0,0,.45)`. It auto-rotates through 3 items every **4200ms**: images cross-fade (opacity .8s, scale 1.08→1 in 1.4s), captions roll up (`translateY(100% → 0 → −100%)`, .7s). A 2px progress bar at the bottom fills with `scaleX 0→1` over the same 4200ms. Hover lifts the card 6px and turns the arrow button black, rotated 45°.
+- DO NOT center the wordmark. DO NOT put the meadow behind the wordmark (it starts at 30% of the card height). DO NOT replace the mask fade with a hard edge.
+
+## 6. Manifesto statement
+12-column grid, label in columns 1–3, text in columns 5–12. The text is split into word spans; every word starts `#c6c6c6` and turns `#121212` one after another with a scrubbed tween (`stagger .1`, ScrollTrigger `start "top 85%"`, `end "bottom 35%"`, `scrub .6`). The `/` stays `#8e8e8e`.
+
+## 7. Stats — PIXEL CONTRACT
+Four cards, `height clamp(220px, 18vw, 260px)`, radius 16, padding 20, numbers `clamp(44px, 3.8vw, 58px)` tracking −.05em with a `+` superscript at .4em.
+1. **48+ Worldwide Partners** — light card with two rows of 64px round faces (gap 8) running as endless marquees: top row moves right, bottom row moves left, 26s linear, 10 faces split 5/5 and duplicated, edges masked 14%/86%. The number and its label sit on one baseline row, label to the right of the number (gap 12).
+2. **Design Honors 12+** — dark card with a 92px rotating seal (circular text `AWARDED · 2026 · BEST OF CRAFT ·`, 22s per turn) and a laurel + star centre.
+3. **Launches Shipped 150+** — light card, copy on top, 68×74 thumbnail (stat-projects) next to the number.
+4. **Countries Reached 14+** — photo card (stat-countries) blurred 3px, with a top/bottom dark gradient; the photo drifts `yPercent −8` with scroll.
+All numbers count up from 0 in 2s `power3.out` when they enter the viewport (92%).
+
+## 8. Services accordion — PIXEL CONTRACT
+- Panel: margin `clamp(90px, 9vw, 130px) 12px 0`, `#1a1a1b`, radius 20. It opens up while it enters: `clip-path inset(4% 3% 0% 3% round 32px) → inset(0 round 20px)` scrubbed from `top 95%` to `top 35%`.
+- Header: label + 2-line `.h2` on the left, right-aligned 12px copy and three outline pills (STRATEGY · EXPERIENCE · MOTION, 28px tall, 10.5px).
+- Row grid: `clamp(70px, 15%, 200px) | 1fr | 44px`, padding 30px 0, 1px `rgba(255,255,255,.12)` dividers. Index `[01]` 11px.
+- Inner grid two equal columns. **Closed**: title (`clamp(22px,1.9vw,28px)`) left, 12.5px description right. **Open**: description and chips slide open under the title (`grid-template-rows 0fr → 1fr`, .8s), the right-hand description fades out and two 168px square images appear (both radius 14, no circles) via `max-height 0 → 200px` + opacity; the images pop from `scale .6, rotate −8°` with stagger .08.
+- Only one row is open at a time; clicking an open row closes it. Row 01 is open on load. The toggle is a 40px circle whose vertical bar rotates to flat when open; on row hover the circle fills white and the title shifts 8px right.
+- "Let's Talk ↗" white pill 42px tall, magnetic (follows the pointer by 30%/40%). The "Share Your Story ↗" button in the rating card is NOT magnetic: it stays fixed and on hover its background changes from white to `#cfe8a9` (.4s).
+- DO NOT keep hidden images taking space in closed rows. DO NOT animate `height: auto` with JS.
+
+## 9. Selected work — stacked sticky cards
+- Three `<article class="proj">`, each `position: sticky; top: 12px; height: min(860px, 100svh − 24px); min-height 560px`, gap 12.
+- Inside: full-bleed photo at 115% height with parallax `yPercent −8 → 0` while the card rises; top row (label, 12px descriptor, `// 01 — 03`), a centred white client mark (icon + name, `clamp(24px,2.2vw,32px)`), bottom-left title + glass chips, bottom-right Client / Year table 1px dividers.
+- While the next card rises from `top bottom` to `top top`, the current card scales to **.9** (origin top centre), its radius grows to 28px and a black shade fades to **.55** (scrubbed).
+- Desktop pointers get a 92px white cursor bubble reading `View ↗` that follows the mouse (`quickTo` .5s) and scales in over the cards.
+- Project 2 photo uses `object-position: 50% 80%`.
+
+## 10. Process — PIXEL CONTRACT
+- Header: label (cols 1–3), 2-line `.h2` (cols 4–8), 12.5px copy (cols 9–12).
+- Four lanes, height `clamp(240px, 22vw, 320px)`, dotted background `radial-gradient(circle, #dadad8 1px, transparent 1.3px)` at 9×9px, a 40px footer cell with `01`–`04`.
+- Each lane has one 34px black bar (`Discover`, `Compose`, `Direct`, `Release`) at `top: calc((100% − 34px − 44px) × i / 3)` for i = 0…3 — a staircase.
+- Scrubbed timeline (`#lanes`, `start "top 80%"`, `end "bottom 40%"`, `scrub .8`): every bar starts at the top of its lane at `scaleX .18` and slides down to its step while growing to full width; bars start .55 apart. The matching step card below gets `.is-live` (white + 1px ring + soft shadow) as the progress passes each quarter.
+- DO NOT put the bars at the same height. DO NOT use a horizontal progress bar instead.
+
+## 11. Assets (all `https://assets.layerweb.com.br/fieldwork/…`, WebP)
+| file | size | where |
+|---|---|---|
+| `hero-field.jpg` | 2000×1333 | hero background |
+| `hero-card.webp`, `svc-systems-a.webp`, `quote-02.webp` | 800×640 / 600² / 300² | featured card rotation |
+| `avatar-01.webp` … `avatar-12.webp` | 192×192 | hero crew, faces grid, rating stack, people cards |
+| `stat-projects.webp` | 400×400 | Launches Shipped thumb |
+| `stat-countries.webp` | 900×900 | Countries Reached background |
+| `svc-brand-a/b`, `svc-digital-a/b`, `svc-systems-a/b`, `svc-motion-a/b` `.webp` | 600×600 | service images (a = round, b = square) |
+| `project-01.webp`, `project-02.webp`, `project-03.webp` | 2200 w | Marlow, Tallow, Cirrus cards |
+| `quote-01.webp`, `quote-02.webp`, `quote-03.webp` | 300×300 | testimonial thumbnails |
+Every `<img>` gets an `error` listener that adds `.broken` (`opacity: 0`); every image container has a background colour, so a failed image leaves no gap and no layout shift.
+
+## 12. Testimonials + logo band
+- Grid 4 columns, gap 12. Column 1: dark rating card (min-height 420): `Client Rating`, `4.9/5` (counts up with 1 decimal), rotating seal (`CLIENT CHOICE · 2026 · TOP RATED ·`), copy, avatar stack + `45+` bubble, five 11px stars, full-width white button `Share Your Story ↗`. Column 2: quote card + person card. Column 3: person card + quote card. Column 4: quote card + person card.
+- Quote card: `#f2f2f1`, radius 16, padding 20, 22×18 quote mark, centred quote `clamp(17px,1.5vw,21px)` lh 1.26, footer with stars + `5 out of 5` + a three-word caption and a 52px thumbnail.
+- Columns enter with `y 80 → 0, rotate 1.5° → 0`, 1.4s `expo.out`, stagger .12.
+- Logo band: no background or fill, just 7 fictional marks at 19px, duplicated, 40s marquee, pauses on hover.
+
+## 13. Footer
+Dark card, margin `clamp(100px,11vw,160px) 12px 12px`. Giant wordmark (letters rise from `yPercent 110`, stagger .045 when the footer hits 75%), `© 20 - 26°` with a 72×3px white line that draws from the right. 12-col middle row: lead copy + underlined 32px email (underline retracts on hover), Navigation / Services (Starter, Studio, Bespoke Plan) / Social media (four 34px outline circles). Info row: phone, address, hours, 42px back-to-top button (smooth-scroll to 0 in 1.6s). Legal bar 11px with a 1px top divider.
+
+## 14. Motion
+**Smooth scroll:** `new Lenis({ lerp: .09, smoothWheel: true })`, `lenis.on('scroll', ScrollTrigger.update)`, driven by `gsap.ticker` (`lenis.raf(t * 1000)`), `gsap.ticker.lagSmoothing(0)`. Anchor clicks use `lenis.scrollTo(target, { duration: 1.6, easing: t => 1 − (1 − t)^4 })`.
+
+**Entrance timeline** (starts .15s after script, `expo.out`):
+| t (s) | target | from → to | duration |
+|---|---|---|---|
+| 0 | hero card | `clip-path inset(6% 5% 6% 5% round 28px)` → `inset(0 round 20px)` | 1.5 |
+| 0 | hero photo | `scale 1.12 → 1` | 2.2 |
+| .35 | wordmark letters + ® | `yPercent 110 → 0`, stagger .045 | 1.3 |
+| .6 | nav | `yPercent −100, opacity 0 → 0, 1` | 1.0 |
+| .8 | aside + trust | `y 24, opacity 0 → 0, 1`, stagger .1 | 1.1 |
+| 1.0 | crew line | `scaleX 0 → 1` | 1.0 |
+| 1.05 | featured card | `x 60, opacity 0 → 0, 1` | 1.3 |
+
+**Hero scroll (scrub, hero top→bottom leaves):** wordmark `yPercent −40, opacity .2`; aside `y −60`; featured card `y −50`.
+
+**Section reveals:** `[data-reveal]` → `y 36, opacity 0` in 1.2s at `top 90%`. `[data-split]` headings are split into masked words → `yPercent 115 → 0`, stagger .05, at `top 88%`. Stat cards and testimonial columns use `ScrollTrigger.batch` (once).
+
+## 15. Responsive
+- **≥1101px**: everything above.
+- **≤1100px**: nav links hidden; stats 2×2; testimonials 2 columns; section heads stack the label on its own row; statement spans all 12 columns; step cards 2×2; footer lead spans the full row.
+- **≤900px**: hero `height auto; min-height 760px`, top row stacks (wordmark `clamp(64px,17vw,150px)`, aside full width), photo starts at 40%; services header stacks, rows become `1fr 40px` with the index on its own line and images below the copy when open; project cards hide the descriptor and stack the bottom row.
+- **≤640px**: `--edge 8px`, `--pad 18px`; featured card hidden; statement 25px; stats 1 column, 210px tall; lanes 220px tall with 28px bars and 10px labels; steps and testimonials 1 column; project cards `height 100svh − 120px; min-height 520px`; footer stacks.
+No horizontal page scroll at any width (`overflow-x: clip` on body).
+
+## 16. Accessibility
+- `prefers-reduced-motion: reduce`: Lenis is not created, no GSAP timelines run, numbers show their final value, statement words are ink from the start, marquees stop, CSS transitions/animations collapse to .001ms.
+- Every content image has an English `alt`; decorative faces use `alt=""`. Buttons carry `aria-label`; accordion toggles keep `aria-expanded` in sync; the menu keeps `aria-hidden`/`aria-expanded` in sync.
+- Touch devices (`hover: none` or `pointer: coarse`) never get the cursor bubble, magnetic buttons or mouse parallax.
+
+## 17. Final self-check (run before answering)
+1. At 1440×900 the hero card is 1401×812 at (12, 76) and the wordmark computes to 169.92px.
+2. `document.fonts.check('500 40px "Inter Tight"')` is `true`.
+3. 39 `<img>` elements using exactly 30 distinct files from `https://assets.layerweb.com.br/fieldwork/` all load (no `naturalWidth === 0`), and no request goes anywhere else except Google Fonts, cdnjs and jsdelivr.
+4. 4 service rows, only one `.is-open` at a time; 3 sticky project cards; 4 process bars at 4 different heights; 4 step cards; 4 stat cards; 3 quotes; 3 person cards.
+5. `document.documentElement.scrollWidth === innerWidth` at 1440, 768 and 375.
+6. Console shows no errors and no 404s.
+7. Every visible string is English, the brand is "Fieldwork" everywhere, and the page contains no other studio's name or logo.
+
+---
+
+## Appendix A — production file (`index.html`, verbatim)
+
+````html
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fieldwork — Independent Design Studio</title>
+<meta name="description" content="Fieldwork is an independent design studio crafting brand identities, websites and motion for founders, studios and ambitious products.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 15a7 7 0 0 1 14 0z' fill='%23121212'/%3E%3Crect x='2' y='17' width='20' height='2.2' rx='1.1' fill='%23121212'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="preload" as="image" href="https://assets.layerweb.com.br/fieldwork/hero-field.jpg">
+<style>
+/* ---------- Tokens ---------- */
+:root{
+  --bg:#ffffff;
+  --ink:#121212;
+  --ink-2:#4b4b4b;
+  --muted:#8e8e8e;
+  --ghost:#c6c6c6;
+  --soft:#f2f2f1;
+  --hero:#e8e8e6;
+  --dark:#1a1a1b;
+  --dark-2:#262628;
+  --line:#e3e3e1;
+  --line-d:rgba(255,255,255,.12);
+  --star:#f2a516;
+  --r:20px;
+  --r-md:16px;
+  --r-sm:12px;
+  --edge:12px;                                  /* outer margin of every card */
+  --pad:clamp(20px, 2.6vw, 40px);               /* inner padding of cards and sections */
+  --ease:cubic-bezier(.16,1,.3,1);
+  --font:"Inter Tight", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+html.lenis,html.lenis body{height:auto}
+.lenis.lenis-smooth{scroll-behavior:auto!important}
+body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);background:var(--bg);overflow-x:clip}
+img{display:block;max-width:100%}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+ul{list-style:none}
+svg{display:block}
+::selection{background:var(--ink);color:#fff}
+img.broken{opacity:0}
+
+.label{display:inline-flex;align-items:center;gap:6px;font-size:11px;letter-spacing:.02em;text-transform:uppercase;color:var(--ink)}
+.label i{font-style:normal;color:var(--muted);font-size:9px}
+.label--light{color:#f2f2f2}
+.label--light i{color:rgba(255,255,255,.45)}
+.h2{font-weight:400;font-size:clamp(32px, 3.3vw, 48px);line-height:1.06;letter-spacing:-.035em}
+.sup{font-size:.42em;vertical-align:top;position:relative;top:.12em;margin-left:.02em;letter-spacing:0}
+
+/* split-word mask used by headings */
+.split .w{display:inline-block;overflow:hidden;vertical-align:top;padding-bottom:.08em;margin-bottom:-.08em}
+.split .w > span{display:inline-block;will-change:transform}
+
+/* ---------- Nav ---------- */
+.nav{position:fixed;inset:0 0 auto 0;z-index:50;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 calc(var(--edge) + 16px);transition:transform .6s var(--ease),background-color .4s ease,backdrop-filter .4s ease}
+.nav.is-scrolled{background:rgba(255,255,255,.78);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.nav.is-hidden{transform:translateY(-100%)}
+.brand{display:inline-flex;align-items:center;gap:7px;font-weight:500;font-size:15px;letter-spacing:-.02em}
+.brand svg{width:18px;height:18px}
+.brand .sup{font-size:.6em;top:-.1em}
+.nav__links{display:flex;align-items:center;gap:0;font-size:13px}
+.nav__links a{position:relative;overflow:hidden;display:inline-block}
+.nav__links a span{display:block;position:relative;padding:6px 2px;line-height:1.5;transition:transform .5s var(--ease)}
+.nav__links a span::after{content:attr(data-t);position:absolute;left:0;top:100%;padding:6px 2px;line-height:1.5}
+.nav__links a:hover span{transform:translateY(-100%)}
+.nav__links .plus{color:var(--ghost);margin:0 clamp(18px,3.4vw,52px);font-size:13px}
+.burger{width:44px;height:44px;display:grid;place-content:center;gap:6px;margin-right:-8px}
+.burger i{display:block;width:28px;height:1.5px;background:var(--ink);transition:transform .5s var(--ease),width .5s var(--ease)}
+.burger:hover i:last-child{width:18px;transform:translateX(10px)}
+
+/* ---------- Menu overlay ---------- */
+.menu{position:fixed;inset:0;z-index:60;background:var(--dark);color:#f4f4f4;clip-path:inset(0 0 100% 0);transition:clip-path .9s var(--ease);display:flex;flex-direction:column;padding:20px calc(var(--edge) + 16px) 36px;pointer-events:none}
+.menu.is-open{clip-path:inset(0 0 0 0);pointer-events:auto}
+.menu__top{display:flex;justify-content:space-between;align-items:center;height:44px}
+.menu__close{width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.3);display:grid;place-items:center;transition:transform .5s var(--ease)}
+.menu__close:hover{transform:rotate(90deg)}
+.menu__list{margin-top:auto;display:flex;flex-direction:column;gap:4px}
+.menu__list a{display:flex;align-items:baseline;gap:18px;font-size:clamp(44px,8vw,104px);line-height:1;letter-spacing:-.045em;overflow:hidden}
+.menu__list a span{display:inline-block;transform:translateY(105%);transition:transform .9s var(--ease)}
+.menu__list a small{font-size:12px;letter-spacing:0;color:rgba(255,255,255,.4);transform:translateY(105%);transition:transform .9s var(--ease)}
+.menu.is-open .menu__list a span,.menu.is-open .menu__list a small{transform:none}
+.menu__list a:hover span{color:#9a9a9a}
+.menu__foot{display:flex;justify-content:space-between;margin-top:40px;font-size:13px;color:rgba(255,255,255,.55)}
+
+/* ---------- Hero ---------- */
+.hero{position:relative;margin:76px var(--edge) 0;aspect-ratio:2000/1333;min-height:560px;border-radius:var(--r);background:var(--hero);overflow:hidden;isolation:isolate}
+.hero__media{position:absolute;inset:0;z-index:-1}
+.hero__media img{width:100%;height:100%;object-fit:cover;object-position:50% 50%;transform-origin:50% 50%;will-change:transform}
+.hero__media::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(10,14,8,.38) 0%,rgba(10,14,8,0) 30%)}
+.hero__top{display:flex;justify-content:space-between;align-items:flex-start;gap:32px;padding:clamp(22px,2.6vw,38px) var(--pad) 0}
+.wordmark{font-weight:500;font-size:clamp(72px, 11.8vw, 200px);line-height:.84;letter-spacing:-.06em;white-space:nowrap;will-change:transform}
+.wordmark .mask{display:inline-block;overflow:hidden;padding:.06em .02em .04em 0;vertical-align:top}
+.wordmark .ch{display:inline-block;will-change:transform}
+.wordmark .sup{font-size:.3em;top:.16em;margin-left:.04em;font-weight:400}
+.hero__aside{width:300px;flex:none;padding-top:clamp(10px,1.4vw,22px)}
+.crew{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.crew .av{width:26px;height:26px;border-radius:50%;overflow:hidden;background:#cfcfcd;flex:none;box-shadow:0 0 0 2px var(--hero)}
+.crew .av img{width:100%;height:100%;object-fit:cover}
+.crew .ln{width:44px;height:1px;background:var(--ink);transform-origin:left}
+.crew .pair{display:flex}
+.crew .pair .av + .av{margin-left:-8px}
+.crew .tag{font-size:10px;letter-spacing:.06em;text-transform:uppercase;margin-left:6px}
+.hero__aside p{font-size:13px;line-height:1.55;color:var(--ink);max-width:264px}
+.hero__bottom{position:absolute;left:var(--pad);right:var(--pad);bottom:clamp(20px,2.4vw,32px);display:flex;align-items:flex-end;justify-content:space-between;gap:24px;color:#fff}
+.trust{flex:1;min-width:0;max-width:640px}
+.trust p{font-size:12px;line-height:1.5;max-width:230px;opacity:.9;margin-bottom:16px}
+.logos{overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 88%,transparent);mask-image:linear-gradient(90deg,transparent,#000 6%,#000 88%,transparent)}
+.logos__track{display:flex;width:max-content;animation:marquee 32s linear infinite}
+.logos:hover .logos__track{animation-play-state:paused}
+.logo{display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:500;letter-spacing:-.02em;margin-right:44px;white-space:nowrap;opacity:.88}
+.logo svg{width:18px;height:18px}
+@keyframes marquee{to{transform:translateX(-50%)}}
+
+.feature{position:relative;width:236px;flex:none;background:#fff;color:var(--ink);border-radius:var(--r-md);padding:6px 6px 0;box-shadow:0 24px 50px -24px rgba(0,0,0,.45);transition:transform .6s var(--ease)}
+.feature:hover{transform:translateY(-6px)}
+.feature__img{position:relative;height:150px;border-radius:11px;overflow:hidden;background:#d8d8d6}
+.feature__img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.08);transition:opacity .8s ease,transform 1.4s var(--ease)}
+.feature__img img.is-on{opacity:1;transform:scale(1)}
+.feature__cap{display:flex;justify-content:space-between;align-items:center;padding:10px 8px 12px}
+.feature__txt{position:relative;height:36px;flex:1;overflow:hidden}
+.feature__txt div{position:absolute;inset:0;transition:transform .7s var(--ease),opacity .5s ease;transform:translateY(100%);opacity:0}
+.feature__txt div.is-on{transform:none;opacity:1}
+.feature__txt div.is-out{transform:translateY(-100%);opacity:0}
+.feature__txt b{display:block;font-weight:500;font-size:13px;letter-spacing:-.01em}
+.feature__txt span{font-size:11px;color:var(--ink-2)}
+.feature__txt span em{font-style:normal;margin-left:10px}
+.feature__go{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;transition:background .3s,color .3s,transform .5s var(--ease)}
+.feature:hover .feature__go{background:var(--ink);color:#fff;transform:rotate(45deg)}
+.feature__bar{position:absolute;left:14px;right:14px;bottom:0;height:2px;background:var(--line);border-radius:2px;overflow:hidden}
+.feature__bar i{display:block;height:100%;width:100%;background:var(--ink);transform:scaleX(0);transform-origin:left}
+
+/* ---------- About ---------- */
+.about{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:24px;padding:clamp(100px,11vw,160px) calc(var(--edge) + var(--pad)) clamp(90px,9vw,130px)}
+.about .label{grid-column:1 / span 3;align-self:start;padding-top:10px}
+.statement{grid-column:5 / span 8;font-size:clamp(26px, 2.55vw, 38px);line-height:1.2;letter-spacing:-.028em;font-weight:400}
+.statement .word{color:var(--ghost)}
+.statement .slash{color:var(--muted);margin:0 .2em}
+
+/* ---------- Stats ---------- */
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--edge);margin:0 var(--edge)}
+.stat{position:relative;height:clamp(220px,18vw,260px);border-radius:var(--r-md);background:var(--soft);padding:20px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}
+.stat__num{font-size:clamp(44px,3.8vw,58px);line-height:1;letter-spacing:-.05em;font-weight:400}
+.stat__num sup{font-size:.4em;vertical-align:top;position:relative;top:.05em;margin-left:2px}
+.stat__k{font-size:12px;color:var(--ink-2);margin-bottom:6px}
+.stat--team{padding:0 0 20px}
+.faces{display:flex;flex-direction:column;gap:8px;padding-top:16px;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 14%,#000 86%,transparent);mask-image:linear-gradient(90deg,transparent 0,#000 14%,#000 86%,transparent)}
+.faces__row{display:flex;gap:8px;width:max-content;animation:facesR 26s linear infinite}
+.faces__row:nth-child(2){animation-name:facesL}
+.faces span{width:64px;height:64px;border-radius:50%;overflow:hidden;background:#dcdcda;flex:none}
+.faces img{width:100%;height:100%;object-fit:cover}
+@keyframes facesR{from{transform:translateX(-50%)}to{transform:translateX(0)}}
+@keyframes facesL{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.stat__line{display:flex;align-items:baseline;gap:12px;padding:0 20px}
+.stat__line .stat__k{margin:0}
+.stat--dark{background:var(--dark);color:#f4f4f4}
+.stat--dark .stat__k{color:rgba(255,255,255,.7)}
+.stat--dark p{font-size:12px;line-height:1.5;color:rgba(255,255,255,.62);max-width:220px}
+.seal{position:absolute;top:14px;right:14px;width:92px;height:92px}
+.seal .ring{animation:spin 22s linear infinite;transform-origin:50% 50%}
+@keyframes spin{to{transform:rotate(360deg)}}
+.stat--story p{font-size:12px;line-height:1.5;color:var(--ink-2);max-width:240px}
+.stat--story .row{display:flex;align-items:flex-end;gap:14px}
+.stat--story .thumb{width:68px;height:74px;border-radius:10px;overflow:hidden;flex:none;background:#2b3a22}
+.stat--story .thumb img{width:100%;height:100%;object-fit:cover}
+.stat--photo{color:#fff;background:#4d6b34}
+.stat--photo > img{position:absolute;inset:-10%;width:120%;height:120%;object-fit:cover;filter:blur(3px) saturate(1.05);transform:scale(1.05)}
+.stat--photo::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.18),rgba(0,0,0,.05) 50%,rgba(0,0,0,.35));z-index:1}
+.stat--photo > *:not(img){position:relative;z-index:2}
+.stat--photo .stat__k{color:rgba(255,255,255,.88)}
+.stat--photo p{font-size:12px;line-height:1.5;max-width:220px;color:rgba(255,255,255,.85)}
+
+/* ---------- Services ---------- */
+.services{margin:clamp(90px,9vw,130px) var(--edge) 0;background:var(--dark);color:#f2f2f2;border-radius:var(--r);padding:clamp(40px,4.4vw,64px) var(--pad) clamp(44px,4.4vw,64px)}
+.services__head{display:grid;grid-template-columns:1fr auto;gap:40px;align-items:end;margin-bottom:clamp(36px,4vw,56px)}
+.services__head .h2{margin-top:18px}
+.services__aside{text-align:right}
+.services__aside p{font-size:12px;line-height:1.55;color:rgba(255,255,255,.62);max-width:270px;margin:0 0 14px auto}
+.pills{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;height:28px;padding:0 13px;border:1px solid rgba(255,255,255,.4);border-radius:999px;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;transition:background .3s,color .3s}
+.pill:hover{background:#f2f2f2;color:var(--dark)}
+.svc{display:grid;grid-template-columns:clamp(70px,15%,200px) minmax(0,1fr) 44px;gap:0;padding:30px 0;border-bottom:1px solid var(--line-d);cursor:pointer}
+.svc:first-child{border-top:1px solid var(--line-d)}
+.svc__idx{font-size:11px;color:rgba(255,255,255,.5);padding-top:8px}
+.svc__main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(24px,4vw,60px);align-items:start}
+.svc__title{font-size:clamp(22px,1.9vw,28px);font-weight:400;letter-spacing:-.03em;line-height:1.15;transition:transform .6s var(--ease)}
+.svc:hover .svc__title{transform:translateX(8px)}
+.svc__more{display:grid;grid-template-rows:0fr;transition:grid-template-rows .8s var(--ease)}
+.svc__more > div{overflow:hidden}
+.svc__more p{font-size:12.5px;line-height:1.6;color:rgba(255,255,255,.62);max-width:380px;padding-top:14px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding-top:18px}
+.chip{height:28px;display:inline-flex;align-items:center;padding:0 12px;border:1px solid rgba(255,255,255,.38);border-radius:999px;font-size:11px}
+.svc__side{display:grid}
+.svc__side > *{grid-area:1/1}
+.svc__desc{font-size:12.5px;line-height:1.6;color:rgba(255,255,255,.62);max-width:420px;transition:opacity .45s ease,transform .6s var(--ease)}
+.svc__pics{display:flex;gap:14px;opacity:0;pointer-events:none;max-height:0;transition:max-height .8s var(--ease),opacity .5s ease}
+.svc__pics span{width:clamp(120px,11vw,168px);aspect-ratio:1;overflow:hidden;background:#333;flex:none}
+.svc__pics span{border-radius:14px}
+.svc__pics img{width:100%;height:100%;object-fit:cover}
+.svc__tog{width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.55);position:relative;justify-self:end;transition:background .3s,border-color .3s}
+.svc__tog::before,.svc__tog::after{content:"";position:absolute;left:50%;top:50%;width:13px;height:1.5px;background:#f2f2f2;translate:-50% -50%;transition:transform .6s var(--ease),background .3s}
+.svc__tog::after{transform:rotate(90deg)}
+.svc:hover .svc__tog{background:#f2f2f2;border-color:#f2f2f2}
+.svc:hover .svc__tog::before,.svc:hover .svc__tog::after{background:var(--dark)}
+.svc.is-open .svc__more{grid-template-rows:1fr}
+.svc.is-open .svc__desc{opacity:0;transform:translateY(-8px)}
+.svc.is-open .svc__pics{opacity:1;pointer-events:auto;max-height:200px}
+.svc.is-open .svc__tog::after{transform:rotate(0)}
+.services__cta{margin-top:36px;padding-left:clamp(70px,15%,200px)}
+.btn{display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 20px;border-radius:999px;background:#fff;color:var(--ink);font-size:13px;font-weight:500;will-change:transform}
+.btn svg{width:12px;height:12px;transition:transform .5s var(--ease)}
+.btn:hover svg{transform:rotate(45deg)}
+.btn--share{transition:background .4s var(--ease),color .4s var(--ease)}
+.btn--share:hover{background:#cfe8a9;color:var(--ink)}
+.btn--dark{background:var(--ink);color:#fff}
+
+/* ---------- Projects ---------- */
+.work{margin:var(--edge) var(--edge) 0;position:relative}
+.proj{position:sticky;top:var(--edge);height:min(860px, calc(100svh - 24px));min-height:560px;margin-bottom:var(--edge)}
+.proj:last-child{margin-bottom:0}
+.proj__inner{position:relative;height:100%;border-radius:var(--r);overflow:hidden;color:#fff;background:#3a4a2c;transform-origin:50% 0;will-change:transform}
+.proj__img{position:absolute;inset:0;overflow:hidden}
+.proj__img img{width:100%;height:115%;object-fit:cover;will-change:transform}
+.proj__inner::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.28) 0%,rgba(0,0,0,0) 26%,rgba(0,0,0,0) 56%,rgba(0,0,0,.5) 100%);pointer-events:none}
+.proj__shade{position:absolute;inset:0;background:#000;opacity:0;z-index:3;pointer-events:none}
+.proj__top,.proj__bottom,.proj__mark{position:absolute;z-index:2}
+.proj__top{top:clamp(20px,2.4vw,32px);left:var(--pad);right:var(--pad);display:grid;grid-template-columns:clamp(130px,17%,240px) 1fr auto;gap:24px;align-items:start}
+.proj__top p{font-size:12px;line-height:1.55;max-width:300px;opacity:.88}
+.proj__top .count{font-size:11px;letter-spacing:.04em}
+.proj__mark{left:50%;top:50%;translate:-50% -50%;display:flex;align-items:center;gap:10px;font-size:clamp(24px,2.2vw,32px);font-weight:500;letter-spacing:-.04em;white-space:nowrap}
+.proj__mark svg{width:1em;height:1em}
+.proj__bottom{left:var(--pad);right:var(--pad);bottom:clamp(20px,2.4vw,32px);display:flex;justify-content:space-between;align-items:flex-end;gap:24px}
+.proj__title{font-size:clamp(24px,2.2vw,32px);font-weight:400;letter-spacing:-.03em;line-height:1.1;margin-bottom:14px}
+.proj .chip{border-color:rgba(255,255,255,.6);background:rgba(0,0,0,.08);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.proj__meta{width:clamp(200px,20vw,260px);font-size:12px}
+.proj__meta div{display:flex;justify-content:space-between;padding:9px 0}
+.proj__meta div + div{border-top:1px solid rgba(255,255,255,.3)}
+.proj__meta dt{opacity:.75}
+
+/* cursor bubble on project cards */
+.cursor{position:fixed;left:0;top:0;z-index:70;width:92px;height:92px;margin:-46px 0 0 -46px;border-radius:50%;background:#fff;color:var(--ink);display:grid;place-items:center;font-size:12px;font-weight:500;pointer-events:none;scale:0;transition:scale .5s var(--ease)}
+.cursor.is-on{scale:1}
+@media (hover:none),(pointer:coarse){.cursor{display:none}}
+
+/* ---------- Process ---------- */
+.process{padding:clamp(100px,11vw,160px) calc(var(--edge) + var(--pad)) 0}
+.sec-head{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:24px;align-items:start;margin-bottom:clamp(48px,6vw,90px)}
+.sec-head .label{grid-column:1 / span 3;padding-top:12px}
+.sec-head .h2{grid-column:4 / span 5}
+.sec-head p{grid-column:9 / span 4;font-size:12.5px;line-height:1.6;color:var(--ink-2);max-width:330px;padding-top:6px}
+.lanes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.lane{position:relative;height:clamp(240px,22vw,320px);border-top:1px solid var(--line);background-image:radial-gradient(circle,#dadad8 1px,transparent 1.3px);background-size:9px 9px;background-position:4px 4px}
+.lane__bar{position:absolute;left:0;right:0;top:calc((100% - 34px - 44px) * var(--i) / 3);height:34px;background:var(--ink);color:#fff;font-size:12px;display:flex;align-items:center;padding:0 12px;transform-origin:left center;will-change:transform}
+.lane__no{position:absolute;left:0;right:0;bottom:0;height:40px;display:grid;place-items:center;font-size:11px;color:var(--muted);background:var(--bg);border-top:1px solid var(--line)}
+.lane__fill{position:absolute;left:0;top:0;width:1px;height:100%;background:var(--line)}
+.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:20px}
+.step{background:var(--soft);border-radius:var(--r-sm);padding:20px 18px 26px;transition:background .5s ease,box-shadow .5s ease}
+.step h3{font-size:clamp(17px,1.4vw,20px);font-weight:400;letter-spacing:-.025em;margin-bottom:10px}
+.step p{font-size:12px;line-height:1.55;color:var(--ink-2);max-width:240px}
+.step.is-live{background:#fff;box-shadow:0 0 0 1px var(--line),0 18px 40px -26px rgba(0,0,0,.3)}
+
+/* ---------- Testimonials ---------- */
+.voices{padding:clamp(100px,11vw,160px) var(--edge) 0}
+.voices .sec-head{padding:0 var(--pad)}
+.voices .sec-head .h2{grid-column:1 / span 7;margin-top:30px}
+.voices .sec-head .label{grid-column:1 / span 12;padding-top:0}
+.voices .sec-head p{grid-column:9 / span 4;margin-top:-34px}
+.vgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--edge);align-items:stretch}
+.vcol{display:flex;flex-direction:column;gap:var(--edge)}
+.rating{position:relative;flex:1;background:var(--dark);color:#f2f2f2;border-radius:var(--r-md);padding:20px;display:flex;flex-direction:column;min-height:420px}
+.rating .stat__k{color:rgba(255,255,255,.75)}
+.rating__num{font-size:clamp(48px,4.2vw,62px);letter-spacing:-.05em;line-height:1;margin-top:8px}
+.rating__num small{font-size:.32em;letter-spacing:0;color:rgba(255,255,255,.6)}
+.rating p{font-size:12px;line-height:1.55;color:rgba(255,255,255,.62);margin-top:auto;max-width:240px}
+.rating__row{display:flex;align-items:center;gap:10px;margin:18px 0 16px}
+.stack{display:flex}
+.stack span{width:26px;height:26px;border-radius:50%;overflow:hidden;box-shadow:0 0 0 2px var(--dark);background:#444}
+.stack span + span{margin-left:-8px}
+.stack img{width:100%;height:100%;object-fit:cover}
+.stack b{width:26px;height:26px;border-radius:50%;margin-left:-8px;background:#fff;color:var(--ink);font-size:9px;font-weight:600;display:grid;place-items:center;box-shadow:0 0 0 2px var(--dark)}
+.rating__row .line{width:22px;height:1px;background:rgba(255,255,255,.4)}
+.stars{display:flex;gap:2px;color:var(--star)}
+.stars svg{width:11px;height:11px}
+.rating__row small{display:block;font-size:10.5px;color:rgba(255,255,255,.6);margin-top:3px}
+.rating .btn{width:100%;justify-content:center;height:44px}
+.quote{background:var(--soft);border-radius:var(--r-md);padding:20px;display:flex;flex-direction:column;gap:22px;flex:1}
+.quote__mark{width:22px;height:18px;color:var(--ink)}
+.quote blockquote{font-size:clamp(17px,1.5vw,21px);line-height:1.26;letter-spacing:-.025em;text-align:center;padding:0 4px}
+.quote__foot{margin-top:auto;display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.quote__foot small{display:block;font-size:10.5px;color:var(--ink-2);margin-top:4px}
+.quote__foot .stars span{font-size:10.5px;color:var(--ink-2);margin-left:6px}
+.quote__thumb{width:52px;height:52px;border-radius:10px;overflow:hidden;flex:none;background:#2a2a2a}
+.quote__thumb img{width:100%;height:100%;object-fit:cover}
+.person{background:var(--soft);border-radius:var(--r-md);padding:14px 16px;display:flex;align-items:center;gap:12px}
+.person span{width:38px;height:38px;border-radius:50%;overflow:hidden;flex:none;background:#d6d6d4}
+.person img{width:100%;height:100%;object-fit:cover}
+.person b{display:block;font-weight:500;font-size:13.5px;letter-spacing:-.01em}
+.person small{font-size:11.5px;color:var(--muted)}
+.band{margin-top:var(--edge);padding:24px 0;overflow:hidden;color:#3a3a3a;-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
+.band .logos__track{animation-duration:40s}
+.band .logo{font-size:19px;margin-right:64px;opacity:.85}
+.band .logo svg{width:22px;height:22px}
+.band:hover .logos__track{animation-play-state:paused}
+
+/* ---------- Footer ---------- */
+.footer{margin:clamp(100px,11vw,160px) var(--edge) var(--edge);background:var(--dark);color:#f2f2f2;border-radius:var(--r);overflow:hidden}
+.footer__inner{padding:clamp(36px,3.6vw,52px) var(--pad) 0}
+.footer__top{display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
+.footer .wordmark{font-size:clamp(76px, 12.8vw, 210px)}
+.footer__year{text-align:right;font-size:clamp(22px,2.2vw,32px);letter-spacing:-.04em;padding-top:10px}
+.footer__year i{display:block;width:clamp(48px,5vw,72px);height:3px;background:#f2f2f2;margin:clamp(24px,3vw,44px) 0 0 auto;transform-origin:right}
+.footer__mid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:24px;margin-top:clamp(44px,5vw,72px)}
+.footer__lead{grid-column:1 / span 5}
+.footer__lead p{font-size:12px;line-height:1.55;color:rgba(255,255,255,.62);max-width:250px;margin-bottom:16px}
+.mail{display:inline-block;font-size:clamp(24px,2.2vw,32px);letter-spacing:-.035em;line-height:1.2;position:relative;padding-bottom:4px}
+.mail::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1.5px;background:currentColor;transform-origin:right;transition:transform .7s var(--ease)}
+.mail:hover::after{transform:scaleX(0)}
+.fcol{grid-column:span 2}
+.fcol:first-of-type{grid-column:7 / span 2}
+.fcol h4{font-size:10.5px;font-weight:400;letter-spacing:.04em;text-transform:uppercase;color:rgba(255,255,255,.55);margin-bottom:14px}
+.fcol li a{display:inline-block;font-size:15px;line-height:1.75;transition:color .3s,transform .5s var(--ease)}
+.fcol li a:hover{color:#9d9d9d;transform:translateX(4px)}
+.socials{display:flex;gap:8px}
+.socials a{width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.55);display:grid;place-items:center;transition:background .3s,color .3s,transform .5s var(--ease)}
+.socials a:hover{background:#f2f2f2;color:var(--dark);transform:translateY(-3px)}
+.socials svg{width:13px;height:13px}
+.footer__info{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:24px;align-items:end;margin-top:clamp(56px,7vw,110px);padding-bottom:24px;font-size:10.5px;letter-spacing:.02em;text-transform:uppercase;line-height:1.5}
+.footer__info div:nth-child(1){grid-column:1 / span 3}
+.footer__info div:nth-child(2){grid-column:4 / span 4}
+.footer__info div:nth-child(3){grid-column:8 / span 3}
+.footer__info span{color:rgba(255,255,255,.55);display:block}
+.totop{grid-column:11 / span 2;justify-self:end;width:42px;height:42px;border-radius:50%;border:1px solid rgba(255,255,255,.55);display:grid;place-items:center;transition:background .3s,color .3s}
+.totop:hover{background:#f2f2f2;color:var(--dark)}
+.totop svg{width:14px;height:14px;transition:transform .5s var(--ease)}
+.totop:hover svg{transform:translateY(-3px)}
+.footer__legal{display:flex;justify-content:space-between;gap:16px;border-top:1px solid var(--line-d);padding:16px var(--pad);font-size:11px;color:rgba(255,255,255,.75)}
+.footer__legal nav{display:flex;gap:clamp(20px,4vw,56px)}
+.footer__legal a:hover{color:#fff;text-decoration:underline}
+
+/* ---------- Tablet ---------- */
+@media (max-width:1100px){
+  .nav__links{display:none}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .vgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sec-head .label{grid-column:1 / -1;padding-top:0}
+  .sec-head .h2{grid-column:1 / span 7}
+  .sec-head p{grid-column:8 / span 5}
+  .voices .sec-head p{margin-top:30px}
+  .statement{grid-column:1 / -1}
+  .about .label{grid-column:1 / -1}
+  .steps{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .footer__lead{grid-column:1 / -1}
+  .fcol:first-of-type,.fcol{grid-column:span 4}
+}
+@media (max-width:900px){
+  .hero{aspect-ratio:auto;min-height:760px;background:#7fb3e3}
+  .hero__top{flex-direction:column;gap:22px}
+  .wordmark{font-size:clamp(64px,17vw,150px)}
+  .hero__media{inset:auto 0 0 0}
+  .hero__media img{height:auto}
+  .services__head{grid-template-columns:1fr}
+  .services__aside{text-align:left}
+  .services__aside p{margin:0 0 14px}
+  .pills{justify-content:flex-start}
+  .svc{grid-template-columns:1fr 40px;row-gap:10px}
+  .svc__idx{grid-column:1 / -1;padding-top:0}
+  .svc__main{grid-template-columns:1fr;gap:4px}
+  .svc__tog{grid-row:2;grid-column:2}
+  .svc__main{grid-row:2;grid-column:1}
+  .svc__desc{padding-top:10px}
+  .svc.is-open .svc__desc{display:none}
+  .svc__pics{display:none;padding-top:18px}
+  .svc.is-open .svc__pics{display:flex}
+  .services__cta{padding-left:0}
+  .proj__top{grid-template-columns:1fr auto}
+  .proj__top p{display:none}
+  .proj__bottom{flex-direction:column;align-items:flex-start}
+}
+/* ---------- Phone ---------- */
+@media (max-width:640px){
+  :root{--edge:8px;--pad:18px}
+  .nav{padding:0 22px}
+  .hero{margin-top:70px;min-height:720px}
+  .hero__aside{width:100%}
+  .feature{display:none}
+  .about{padding-left:26px;padding-right:26px;gap:18px}
+  .statement{font-size:25px}
+  .stats{grid-template-columns:1fr}
+  .stat{height:210px}
+  .sec-head{gap:16px}
+  .sec-head .h2,.sec-head p,.voices .sec-head p{grid-column:1 / -1;margin-top:0}
+  .voices .sec-head .h2{margin-top:16px}
+  .process{padding-left:22px;padding-right:22px}
+  .lanes{gap:4px}
+  .lane{height:220px}
+  .lane__bar{font-size:10px;padding:0 6px;height:28px;top:calc((100% - 28px - 44px) * var(--i) / 3)}
+  .steps{grid-template-columns:1fr}
+  .vgrid{grid-template-columns:1fr}
+  .rating{min-height:380px}
+  .proj{min-height:520px;height:calc(100svh - 120px)}
+  .proj__meta{width:100%}
+  .proj__mark{top:44%}
+  .footer__top{flex-direction:column}
+  .footer__year{text-align:left}
+  .footer__year i{margin-left:0;transform-origin:left}
+  .fcol:first-of-type,.fcol{grid-column:span 6}
+  .fcol:last-of-type{grid-column:1 / -1}
+  .footer__info div:nth-child(n){grid-column:1 / -1}
+  .totop{grid-column:1 / -1;justify-self:start}
+  .footer__legal{flex-direction:column}
+}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+  .logos__track{animation:none}
+}
+</style>
+</head>
+<body>
+
+<!-- Icon and logo sprites -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-brand" viewBox="0 0 24 24"><path d="M5 15a7 7 0 0 1 14 0z" fill="currentColor"/><rect x="2" y="17" width="20" height="2.2" rx="1.1" fill="currentColor"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 12 12"><path d="M3 9 9 3M4 3h5v5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 2.6 2.9 6 6.5.8-4.8 4.5 1.2 6.5L12 17.2l-5.8 3.2 1.2-6.5L2.6 9.4l6.5-.8z" fill="currentColor"/></symbol>
+  <symbol id="i-quote" viewBox="0 0 22 18"><path d="M0 18V10.6C0 4.7 2.9 1.2 8.6 0l1 2.3C6.8 3.2 5.3 5.1 5.1 8.1H9V18zm12.6 0V10.6C12.6 4.7 15.5 1.2 21.2 0l1 2.3c-2.8.9-4.3 2.8-4.5 5.8h3.9V18z" fill="currentColor"/></symbol>
+  <!-- client marks (fictional) -->
+  <symbol id="l-northpine" viewBox="0 0 24 24"><path d="M12 3 21 20H3z" fill="currentColor"/><path d="M12 10l4 7H8z" fill="#000" fill-opacity=".25"/></symbol>
+  <symbol id="l-quarry" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5" fill="currentColor"/><rect x="13" y="3" width="8" height="8" rx="4" fill="currentColor"/><rect x="3" y="13" width="18" height="8" rx="1.5" fill="currentColor"/></symbol>
+  <symbol id="l-halden" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M3 12h18" stroke="currentColor" stroke-width="2.4"/></symbol>
+  <symbol id="l-tessera" viewBox="0 0 24 24"><circle cx="7" cy="7" r="4" fill="currentColor"/><circle cx="17" cy="7" r="4" fill="currentColor"/><circle cx="7" cy="17" r="4" fill="currentColor"/><circle cx="17" cy="17" r="4" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="l-brightwell" viewBox="0 0 24 24"><path d="M12 2v6M12 16v6M2 12h6M16 12h6M4.9 4.9l4.2 4.2M14.9 14.9l4.2 4.2M4.9 19.1l4.2-4.2M14.9 9.1l4.2-4.2" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+  <symbol id="l-orchard" viewBox="0 0 24 24"><path d="M4 20C4 10 10 4 20 4c0 10-6 16-16 16z" fill="currentColor"/><path d="M5 19 15 9" stroke="#000" stroke-opacity=".3" stroke-width="1.6"/></symbol>
+  <symbol id="l-monolith" viewBox="0 0 24 24"><rect x="4" y="3" width="6" height="18" rx="3" fill="currentColor"/><rect x="14" y="9" width="6" height="12" rx="3" fill="currentColor"/></symbol>
+  <symbol id="l-marlow" viewBox="0 0 24 24"><path d="M3 20V5l9 8 9-8v15" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/></symbol>
+  <symbol id="l-tallow" viewBox="0 0 24 24"><path d="M12 2c4 5 6 8.5 6 12a6 6 0 0 1-12 0c0-3.5 2-7 6-12z" fill="currentColor"/></symbol>
+  <symbol id="l-cirrus" viewBox="0 0 24 24"><path d="M7 18a5 5 0 0 1-.6-9.96A6 6 0 0 1 18 8.5 4.75 4.75 0 0 1 17.5 18z" fill="currentColor"/></symbol>
+</svg>
+
+<!-- Navigation -->
+<header class="nav" id="nav">
+  <a href="#top" class="brand" aria-label="Fieldwork home"><svg aria-hidden="true"><use href="#i-brand"/></svg>Fieldwork<span class="sup">®</span></a>
+  <nav class="nav__links" aria-label="Primary">
+    <a href="#about"><span data-t="About">About</span></a><span class="plus">+</span>
+    <a href="#services"><span data-t="Services">Services</span></a><span class="plus">+</span>
+    <a href="#work"><span data-t="Work">Work</span></a><span class="plus">+</span>
+    <a href="#process"><span data-t="Process">Process</span></a><span class="plus">+</span>
+    <a href="#voices"><span data-t="Testimonials">Testimonials</span></a>
+  </nav>
+  <button class="burger" id="burger" aria-label="Open menu" aria-expanded="false" aria-controls="menu"><i></i><i></i></button>
+</header>
+
+<!-- Fullscreen menu -->
+<div class="menu" id="menu" aria-hidden="true">
+  <div class="menu__top">
+    <span class="brand"><svg aria-hidden="true"><use href="#i-brand"/></svg>Fieldwork<span class="sup">®</span></span>
+    <button class="menu__close" id="menuClose" aria-label="Close menu"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M1 1l12 12M13 1 1 13" stroke="currentColor" stroke-width="1.5"/></svg></button>
+  </div>
+  <nav class="menu__list" aria-label="Menu">
+    <a href="#about"><small>01</small><span>About</span></a>
+    <a href="#services"><small>02</small><span>Services</span></a>
+    <a href="#work"><small>03</small><span>Work</span></a>
+    <a href="#process"><small>04</small><span>Process</span></a>
+    <a href="#voices"><small>05</small><span>Testimonials</span></a>
+  </nav>
+  <div class="menu__foot"><span>hello@fieldwork.studio</span><span>Portland — Remote</span></div>
+</div>
+
+<main id="top">
+
+  <!-- Hero -->
+  <section class="hero" id="hero">
+    <div class="hero__media"><img src="https://assets.layerweb.com.br/fieldwork/hero-field.jpg" alt="Green meadow with white wildflowers and rolling hills under a blue sky" fetchpriority="high"></div>
+    <div class="hero__top">
+      <h1 class="wordmark" id="heroMark" aria-label="Fieldwork">
+        <span class="mask"><span class="ch">F</span><span class="ch">i</span><span class="ch">e</span><span class="ch">l</span><span class="ch">d</span><span class="ch">w</span><span class="ch">o</span><span class="ch">r</span><span class="ch">k</span></span><span class="sup ch-sup">®</span>
+      </h1>
+      <div class="hero__aside">
+        <div class="crew" data-hero-fade>
+          <span class="av"><img src="https://assets.layerweb.com.br/fieldwork/avatar-04.webp" alt="Studio partner portrait"></span>
+          <span class="ln"></span>
+          <span class="pair">
+            <span class="av"><img src="https://assets.layerweb.com.br/fieldwork/avatar-01.webp" alt="Studio designer portrait"></span>
+            <span class="av"><img src="https://assets.layerweb.com.br/fieldwork/avatar-02.webp" alt="Studio strategist portrait"></span>
+          </span>
+          <span class="tag">[ Made to last ]</span>
+        </div>
+        <p data-hero-fade>We craft digital identities with depth for founders, studios and products that ask for more than a clean layout.</p>
+      </div>
+    </div>
+    <div class="hero__bottom">
+      <div class="trust" data-hero-fade>
+        <p>Chosen by 100+ forward-thinking brands turning brave ideas into work that stays.</p>
+        <div class="logos" aria-label="Client logos">
+          <div class="logos__track">
+            <span class="logo"><svg><use href="#l-northpine"/></svg>Northpine</span>
+            <span class="logo"><svg><use href="#l-quarry"/></svg>Quarrystone</span>
+            <span class="logo"><svg><use href="#l-halden"/></svg>Halden</span>
+            <span class="logo"><svg><use href="#l-tessera"/></svg>Tessera</span>
+            <span class="logo"><svg><use href="#l-brightwell"/></svg>Brightwell</span>
+            <span class="logo"><svg><use href="#l-orchard"/></svg>Orchard</span>
+            <span class="logo" aria-hidden="true"><svg><use href="#l-northpine"/></svg>Northpine</span>
+            <span class="logo" aria-hidden="true"><svg><use href="#l-quarry"/></svg>Quarrystone</span>
+            <span class="logo" aria-hidden="true"><svg><use href="#l-halden"/></svg>Halden</span>
+            <span class="logo" aria-hidden="true"><svg><use href="#l-tessera"/></svg>Tessera</span>
+            <span class="logo" aria-hidden="true"><svg><use href="#l-brightwell"/></svg>Brightwell</span>
+            <span class="logo" aria-hidden="true"><svg><use href="#l-orchard"/></svg>Orchard</span>
+          </div>
+        </div>
+      </div>
+      <a href="#work" class="feature" id="feature" aria-label="Featured project">
+        <div class="feature__img">
+          <img class="is-on" src="https://assets.layerweb.com.br/fieldwork/hero-card.webp" alt="Vintage computer with a glowing green screen">
+          <img src="https://assets.layerweb.com.br/fieldwork/svc-systems-a.webp" alt="Small beige retro computer on a cream backdrop">
+          <img src="https://assets.layerweb.com.br/fieldwork/quote-02.webp" alt="Classic white desktop computer">
+        </div>
+        <div class="feature__cap">
+          <div class="feature__txt">
+            <div class="is-on"><b>Halden House®</b><span>Brand Direction<em>2026°</em></span></div>
+            <div><b>Marlow®</b><span>Identity System<em>2026°</em></span></div>
+            <div><b>Cirrus®</b><span>Product Design<em>2025°</em></span></div>
+          </div>
+          <span class="feature__go"><svg width="12" height="12"><use href="#i-arrow"/></svg></span>
+        </div>
+        <div class="feature__bar"><i id="featureBar"></i></div>
+      </a>
+    </div>
+  </section>
+
+  <!-- About -->
+  <section class="about" id="about">
+    <span class="label" data-reveal><i>(01)</i> About studio</span>
+    <p class="statement" id="statement">We think the brands people carry with them are not made of ornament, but <span class="slash">/</span> of atmosphere — a calm pull that holds attention and stays with you long after the scroll stops.</p>
+  </section>
+
+  <!-- Stats -->
+  <section class="stats" aria-label="Studio in numbers">
+    <article class="stat stat--team" data-card>
+      <div class="faces" aria-hidden="true">
+        <div class="faces__row"><span><img src="https://assets.layerweb.com.br/fieldwork/avatar-03.webp" alt=""></span><span><img src="https://assets.layerweb.com.br/fieldwork/avatar-05.webp" alt=""></span><span><img src="https://assets.layerweb.com.br/fieldwork/avatar-06.webp" alt=""></span><span><img src="https://assets.layerweb.com.br/fieldwork/avatar-07.webp" alt=""></span><span><img src="https://assets.layerweb.com.br/fieldwork/avatar-08.webp" alt=""></span><span><img src="https://assets.layerweb.com.br/fieldwork/avatar-03.webp" alt=""></span><span><img src="https://assets.layerweb.com.br/fieldwork/avatar-05.webp" alt=""></span><span><img src="https://assets.layerweb.com.br/fieldwork/avatar-06.webp" alt=""></span><span><img src="https://assets.layerweb.com.br/fieldwork/avatar-07.webp" alt=""></span><span><img src="https://assets.layerweb.com.br/fieldwork/avatar-08.webp" alt=""></span></div>
+        <div class="faces__row"><span><img src="https://assets.layerweb.com.br/fieldwork/avatar-09.webp" alt=""></span><span><img src="https://assets.layerweb.com.br/fieldwork/avatar-10.webp" alt=""></span><span><img src="https://assets.layerweb.com.br/fieldwork/avatar-11.webp" alt=""></span><span><img src="https://assets.layerweb.com.br/fieldwork/avatar-12.webp" alt=""></span><span><img src="https://assets.layerweb.com.br/fieldwork/avatar-04.webp" alt=""></span><span><img src="https://assets.layerweb.com.br/fieldwork/avatar-09.webp" alt=""></span><span><img src="https://assets.layerweb.com.br/fieldwork/avatar-10.webp" alt=""></span><span><img src="https://assets.layerweb.com.br/fieldwork/avatar-11.webp" alt=""></span><span><img src="https://assets.layerweb.com.br/fieldwork/avatar-12.webp" alt=""></span><span><img src="https://assets.layerweb.com.br/fieldwork/avatar-04.webp" alt=""></span></div>
+      </div>
+      <div class="stat__line"><div class="stat__num"><span data-count="48">0</span><sup>+</sup></div><div class="stat__k">Worldwide Partners</div></div>
+    </article>
+    <article class="stat stat--dark" data-card>
+      <div><div class="stat__k">Design Honors</div><div class="stat__num"><span data-count="12">0</span><sup>+</sup></div></div>
+      <svg class="seal" viewBox="0 0 100 100" aria-hidden="true">
+        <defs><path id="sealPath" d="M50 50m-38 0a38 38 0 1 1 76 0a38 38 0 1 1-76 0"/></defs>
+        <g class="ring"><text font-size="8.6" letter-spacing="2.4" fill="rgba(255,255,255,.8)" font-family="Inter Tight, sans-serif"><textPath href="#sealPath">AWARDED · 2026 · BEST OF CRAFT · </textPath></text></g>
+        <g fill="none" stroke="rgba(255,255,255,.85)" stroke-width="1.6" stroke-linecap="round"><path d="M38 62c-7-6-8-16-3-24"/><path d="M62 62c7-6 8-16 3-24"/><path d="M35 54l-5-2M34 47l-5-3M36 41l-4-4M65 54l5-2M66 47l5-3M64 41l4-4"/></g>
+        <use href="#i-star" x="41" y="40" width="18" height="18" color="#fff"/>
+      </svg>
+      <p>Recognized for careful craft and immersive storytelling.</p>
+    </article>
+    <article class="stat stat--story" data-card>
+      <p>From first-time founders to heritage houses, each brief is treated as its own small world.</p>
+      <div class="row">
+        <span class="thumb"><img src="https://assets.layerweb.com.br/fieldwork/stat-projects.webp" alt="Daisies glowing in warm evening light"></span>
+        <div><div class="stat__k">Launches Shipped</div><div class="stat__num"><span data-count="150">0</span><sup>+</sup></div></div>
+      </div>
+    </article>
+    <article class="stat stat--photo" data-card>
+      <img src="https://assets.layerweb.com.br/fieldwork/stat-countries.webp" alt="" data-drift>
+      <div><div class="stat__k">Countries Reached</div><div class="stat__num"><span data-count="14">0</span><sup>+</sup></div></div>
+      <p>Working remotely alongside ambitious teams on every continent.</p>
+    </article>
+  </section>
+
+  <!-- Services -->
+  <section class="services" id="services">
+    <div class="services__head">
+      <div>
+        <span class="label label--light" data-reveal><i>(02)</i> Our services</span>
+        <h2 class="h2 split" data-split>Building Experiences That<br>Stay Long After Launch</h2>
+      </div>
+      <div class="services__aside" data-reveal>
+        <p>A short tour of how we work, told through our partnerships and what they made possible.</p>
+        <div class="pills"><span class="pill">Strategy</span><span class="pill">Experience</span><span class="pill">Motion</span></div>
+      </div>
+    </div>
+
+    <div class="svc-list" id="svcList">
+      <article class="svc is-open" data-svc>
+        <span class="svc__idx">[01]</span>
+        <div class="svc__main">
+          <div>
+            <h3 class="svc__title">Brand Direction</h3>
+            <div class="svc__more"><div>
+              <p>Every lasting brand starts with clarity. We set the visual and strategic ground for how people see, feel and remember you.</p>
+              <div class="chips"><span class="chip">Identity Systems</span><span class="chip">Art Direction</span><span class="chip">Visual Language</span></div>
+            </div></div>
+          </div>
+          <div class="svc__side">
+            <p class="svc__desc">Every lasting brand starts with clarity. We set the visual and strategic ground for how people see, feel and remember you.</p>
+            <div class="svc__pics">
+              <span><img src="https://assets.layerweb.com.br/fieldwork/svc-brand-a.webp" alt="Girl sliding down a bright yellow slide" loading="lazy"></span>
+              <span><img src="https://assets.layerweb.com.br/fieldwork/svc-brand-b.webp" alt="Wooden rocking chair and table in a field of tall grass" loading="lazy"></span>
+            </div>
+          </div>
+        </div>
+        <button class="svc__tog" aria-label="Toggle Brand Direction" aria-expanded="true"></button>
+      </article>
+      <article class="svc" data-svc>
+        <span class="svc__idx">[02]</span>
+        <div class="svc__main">
+          <div>
+            <h3 class="svc__title">Digital Experience</h3>
+            <div class="svc__more"><div>
+              <p>We build immersive websites where story, interaction and technology work together to turn visitors into a loyal audience.</p>
+              <div class="chips"><span class="chip">Web Design</span><span class="chip">Interaction</span><span class="chip">Development</span></div>
+            </div></div>
+          </div>
+          <div class="svc__side">
+            <p class="svc__desc">We build immersive websites where story, interaction and technology work together to turn visitors into a loyal audience.</p>
+            <div class="svc__pics">
+              <span><img src="https://assets.layerweb.com.br/fieldwork/svc-digital-a.webp" alt="Laptop on a light desk beside a small plant" loading="lazy"></span>
+              <span><img src="https://assets.layerweb.com.br/fieldwork/svc-digital-b.webp" alt="Smooth green hills under a pale sky" loading="lazy"></span>
+            </div>
+          </div>
+        </div>
+        <button class="svc__tog" aria-label="Toggle Digital Experience" aria-expanded="false"></button>
+      </article>
+      <article class="svc" data-svc>
+        <span class="svc__idx">[03]</span>
+        <div class="svc__main">
+          <div>
+            <h3 class="svc__title">Design Systems</h3>
+            <div class="svc__more"><div>
+              <p>A flexible framework that keeps your brand consistent on every touchpoint while leaving room to grow, test and evolve.</p>
+              <div class="chips"><span class="chip">Components</span><span class="chip">Guidelines</span><span class="chip">Design Tokens</span></div>
+            </div></div>
+          </div>
+          <div class="svc__side">
+            <p class="svc__desc">A flexible framework that keeps your brand consistent on every touchpoint while leaving room to grow, test and evolve.</p>
+            <div class="svc__pics">
+              <span><img src="https://assets.layerweb.com.br/fieldwork/svc-systems-a.webp" alt="Miniature beige retro computer" loading="lazy"></span>
+              <span><img src="https://assets.layerweb.com.br/fieldwork/svc-systems-b.webp" alt="Meadow scattered with white daisies" loading="lazy"></span>
+            </div>
+          </div>
+        </div>
+        <button class="svc__tog" aria-label="Toggle Design Systems" aria-expanded="false"></button>
+      </article>
+      <article class="svc" data-svc>
+        <span class="svc__idx">[04]</span>
+        <div class="svc__main">
+          <div>
+            <h3 class="svc__title">Motion &amp; Atmosphere</h3>
+            <div class="svc__more"><div>
+              <p>Movement gives design a pulse. With deliberate transitions and cinematic interactions we make experiences feel alive.</p>
+              <div class="chips"><span class="chip">Motion Design</span><span class="chip">3D Scenes</span><span class="chip">Pacing</span></div>
+            </div></div>
+          </div>
+          <div class="svc__side">
+            <p class="svc__desc">Movement gives design a pulse. With deliberate transitions and cinematic interactions we make experiences feel alive.</p>
+            <div class="svc__pics">
+              <span><img src="https://assets.layerweb.com.br/fieldwork/svc-motion-a.webp" alt="Towering white clouds over a grassy ridge" loading="lazy"></span>
+              <span><img src="https://assets.layerweb.com.br/fieldwork/svc-motion-b.webp" alt="White wildflowers rising through green grass" loading="lazy"></span>
+            </div>
+          </div>
+        </div>
+        <button class="svc__tog" aria-label="Toggle Motion and Atmosphere" aria-expanded="false"></button>
+      </article>
+    </div>
+    <div class="services__cta" data-reveal><a href="#contact" class="btn" data-magnet>Let's Talk <svg><use href="#i-arrow"/></svg></a></div>
+  </section>
+
+  <!-- Selected work -->
+  <section class="work" id="work" aria-label="Selected work">
+    <article class="proj" data-proj>
+      <div class="proj__inner">
+        <div class="proj__img"><img src="https://assets.layerweb.com.br/fieldwork/project-01.webp" alt="Model in a black dress lounging in tall green grass" loading="lazy"></div>
+        <div class="proj__top"><span class="label label--light"><i>(03)</i> Selected work</span><p>A considered identity shaped by light, texture and quiet permanence.</p><span class="count">// 01 — 03</span></div>
+        <div class="proj__mark"><svg><use href="#l-marlow"/></svg>Marlow</div>
+        <div class="proj__bottom">
+          <div><h3 class="proj__title">Marlow Brand Renewal</h3><div class="chips"><span class="chip">Brand Strategy</span><span class="chip">Identity Design</span><span class="chip">Art Direction</span></div></div>
+          <dl class="proj__meta"><div><dt>Client</dt><dd>Marlow</dd></div><div><dt>Year</dt><dd>2026°</dd></div></dl>
+        </div>
+        <div class="proj__shade"></div>
+      </div>
+    </article>
+    <article class="proj" data-proj>
+      <div class="proj__inner" style="background:#2b2622">
+        <div class="proj__img"><img style="object-position:50% 80%" src="https://assets.layerweb.com.br/fieldwork/project-02.webp" alt="Laptop on a wooden table showing a misty mountain landscape" loading="lazy"></div>
+        <div class="proj__top"><span class="label label--light"><i>(03)</i> Selected work</span><p>An immersive website built to communicate focus, confidence and trust.</p><span class="count">// 02 — 03</span></div>
+        <div class="proj__mark"><svg><use href="#l-tallow"/></svg>Tallow</div>
+        <div class="proj__bottom">
+          <div><h3 class="proj__title">Tallow Revenue Platform</h3><div class="chips"><span class="chip">UX/UI Design</span><span class="chip">Web Design</span><span class="chip">Development</span></div></div>
+          <dl class="proj__meta"><div><dt>Client</dt><dd>Tallow</dd></div><div><dt>Year</dt><dd>2025°</dd></div></dl>
+        </div>
+        <div class="proj__shade"></div>
+      </div>
+    </article>
+    <article class="proj" data-proj>
+      <div class="proj__inner" style="background:#4b5d7a">
+        <div class="proj__img"><img src="https://assets.layerweb.com.br/fieldwork/project-03.webp" alt="A single white cloud drifting above a grassy slope at dusk" loading="lazy"></div>
+        <div class="proj__top"><span class="label label--light"><i>(03)</i> Selected work</span><p>A scalable framework made to speed up teamwork and support growth.</p><span class="count">// 03 — 03</span></div>
+        <div class="proj__mark"><svg><use href="#l-cirrus"/></svg>Cirrus</div>
+        <div class="proj__bottom">
+          <div><h3 class="proj__title">Cirrus Design System</h3><div class="chips"><span class="chip">Design System</span><span class="chip">Product Design</span><span class="chip">Component Library</span></div></div>
+          <dl class="proj__meta"><div><dt>Client</dt><dd>Cirrus</dd></div><div><dt>Year</dt><dd>2025°</dd></div></dl>
+        </div>
+        <div class="proj__shade"></div>
+      </div>
+    </article>
+  </section>
+
+  <!-- Process -->
+  <section class="process" id="process">
+    <div class="sec-head">
+      <span class="label" data-reveal><i>(04)</i> Our process</span>
+      <h2 class="h2 split" data-split>Our Process Moves<br>Like a Film Crew.</h2>
+      <p data-reveal>Each project starts with a sharp point of view. From there we turn loose ideas into living digital worlds through strategy, craft and steady execution.</p>
+    </div>
+    <div class="lanes" id="lanes">
+      <div class="lane"><div class="lane__bar" style="--i:0">Discover</div><div class="lane__no">01</div></div>
+      <div class="lane"><div class="lane__bar" style="--i:1">Compose</div><div class="lane__no">02</div></div>
+      <div class="lane"><div class="lane__bar" style="--i:2">Direct</div><div class="lane__no">03</div></div>
+      <div class="lane"><div class="lane__bar" style="--i:3">Release</div><div class="lane__no">04</div></div>
+    </div>
+    <div class="steps" id="steps">
+      <div class="step"><h3>Discover</h3><p>We study how your brand feels to people before we draw a single shape.</p></div>
+      <div class="step"><h3>Compose</h3><p>Story, systems, motion rules and visual tension start taking form.</p></div>
+      <div class="step"><h3>Direct</h3><p>Each interaction is tuned frame by frame, like a scene in a film.</p></div>
+      <div class="step"><h3>Release</h3><p>A finished experience built to feel timeless from the first day.</p></div>
+    </div>
+  </section>
+
+  <!-- Testimonials -->
+  <section class="voices" id="voices">
+    <div class="sec-head">
+      <span class="label" data-reveal><i>(05)</i> Testimonials</span>
+      <h2 class="h2 split" data-split>Echoes From the Field</h2>
+      <p data-reveal>Every project rests on trust, shared ambition and the drive to make work that people remember.</p>
+    </div>
+    <div class="vgrid">
+      <div class="vcol" data-card>
+        <div class="rating">
+          <div class="stat__k">Client Rating</div>
+          <div class="rating__num"><span data-count="4.9" data-dec="1">0</span><small>/5</small></div>
+          <svg class="seal" viewBox="0 0 100 100" aria-hidden="true">
+            <defs><path id="sealPath2" d="M50 50m-38 0a38 38 0 1 1 76 0a38 38 0 1 1-76 0"/></defs>
+            <g class="ring"><text font-size="8.6" letter-spacing="2.4" fill="rgba(255,255,255,.8)" font-family="Inter Tight, sans-serif"><textPath href="#sealPath2">CLIENT CHOICE · 2026 · TOP RATED · </textPath></text></g>
+            <g fill="none" stroke="rgba(255,255,255,.85)" stroke-width="1.6" stroke-linecap="round"><path d="M38 62c-7-6-8-16-3-24"/><path d="M62 62c7-6 8-16 3-24"/><path d="M35 54l-5-2M34 47l-5-3M36 41l-4-4M65 54l5-2M66 47l5-3M64 41l4-4"/></g>
+            <use href="#i-star" x="41" y="40" width="18" height="18" color="#fff"/>
+          </svg>
+          <p>Chosen by founders, makers and ambitious brands around the world. Every project is built with intent and finished with care.</p>
+          <div class="rating__row">
+            <div class="stack"><span><img src="https://assets.layerweb.com.br/fieldwork/avatar-05.webp" alt=""></span><span><img src="https://assets.layerweb.com.br/fieldwork/avatar-09.webp" alt=""></span><span><img src="https://assets.layerweb.com.br/fieldwork/avatar-12.webp" alt=""></span><b>45+</b></div>
+            <span class="line"></span>
+            <div><div class="stars" aria-label="5 stars"><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg></div><small>Rated worldwide</small></div>
+          </div>
+          <a href="#contact" class="btn btn--share">Share Your Story <svg><use href="#i-arrow"/></svg></a>
+        </div>
+      </div>
+      <div class="vcol" data-card>
+        <figure class="quote">
+          <svg class="quote__mark"><use href="#i-quote"/></svg>
+          <blockquote>They went beyond a new website. They changed the way people talk about our company.</blockquote>
+          <figcaption class="quote__foot"><div><div class="stars"><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><span>5 out of 5</span></div><small>Distinct. Refined. Timeless.</small></div><span class="quote__thumb"><img src="https://assets.layerweb.com.br/fieldwork/quote-03.webp" alt="Phone and laptop on a wooden desk" loading="lazy"></span></figcaption>
+        </figure>
+        <div class="person"><span><img src="https://assets.layerweb.com.br/fieldwork/avatar-05.webp" alt="Iris Calloway"></span><div><b>Iris Calloway</b><small>Founder, Wren Studio</small></div></div>
+      </div>
+      <div class="vcol" data-card>
+        <div class="person"><span><img src="https://assets.layerweb.com.br/fieldwork/avatar-02.webp" alt="Theo Lindqvist"></span><div><b>Theo Lindqvist</b><small>Creative Director</small></div></div>
+        <figure class="quote">
+          <svg class="quote__mark"><use href="#i-quote"/></svg>
+          <blockquote>It never felt like hiring an agency. It felt like shooting a short film with a crew that truly cared.</blockquote>
+          <figcaption class="quote__foot"><div><div class="stars"><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><span>5 out of 5</span></div><small>Focused. Cinematic. Precise.</small></div><span class="quote__thumb"><img src="https://assets.layerweb.com.br/fieldwork/quote-02.webp" alt="Classic white desktop computer" loading="lazy"></span></figcaption>
+        </figure>
+      </div>
+      <div class="vcol" data-card>
+        <figure class="quote">
+          <svg class="quote__mark"><use href="#i-quote"/></svg>
+          <blockquote>The site feels calm, cinematic and oddly moving. Our clients bring it up all the time.</blockquote>
+          <figcaption class="quote__foot"><div><div class="stars"><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><span>5 out of 5</span></div><small>Atmospheric. Emotional. Lasting.</small></div><span class="quote__thumb"><img src="https://assets.layerweb.com.br/fieldwork/quote-01.webp" alt="Vintage game console and joystick" loading="lazy"></span></figcaption>
+        </figure>
+        <div class="person"><span><img src="https://assets.layerweb.com.br/fieldwork/avatar-10.webp" alt="Nadia Okafor"></span><div><b>Nadia Okafor</b><small>CEO, Fernhall</small></div></div>
+      </div>
+    </div>
+    <div class="band" aria-label="Client logos">
+      <div class="logos__track">
+        <span class="logo"><svg><use href="#l-northpine"/></svg>Northpine</span>
+        <span class="logo"><svg><use href="#l-quarry"/></svg>Quarrystone</span>
+        <span class="logo"><svg><use href="#l-halden"/></svg>Halden</span>
+        <span class="logo"><svg><use href="#l-tessera"/></svg>Tessera</span>
+        <span class="logo"><svg><use href="#l-brightwell"/></svg>Brightwell</span>
+        <span class="logo"><svg><use href="#l-orchard"/></svg>Orchard</span>
+        <span class="logo"><svg><use href="#l-monolith"/></svg>Monolith</span>
+        <span class="logo" aria-hidden="true"><svg><use href="#l-northpine"/></svg>Northpine</span>
+        <span class="logo" aria-hidden="true"><svg><use href="#l-quarry"/></svg>Quarrystone</span>
+        <span class="logo" aria-hidden="true"><svg><use href="#l-halden"/></svg>Halden</span>
+        <span class="logo" aria-hidden="true"><svg><use href="#l-tessera"/></svg>Tessera</span>
+        <span class="logo" aria-hidden="true"><svg><use href="#l-brightwell"/></svg>Brightwell</span>
+        <span class="logo" aria-hidden="true"><svg><use href="#l-orchard"/></svg>Orchard</span>
+        <span class="logo" aria-hidden="true"><svg><use href="#l-monolith"/></svg>Monolith</span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- Footer -->
+<footer class="footer" id="contact">
+  <div class="footer__inner">
+    <div class="footer__top">
+      <div class="wordmark" id="footMark" aria-label="Fieldwork"><span class="mask"><span class="ch">F</span><span class="ch">i</span><span class="ch">e</span><span class="ch">l</span><span class="ch">d</span><span class="ch">w</span><span class="ch">o</span><span class="ch">r</span><span class="ch">k</span></span><span class="sup ch-sup">®</span></div>
+      <div class="footer__year">© 20 - 26°<i id="yearLine"></i></div>
+    </div>
+    <div class="footer__mid">
+      <div class="footer__lead" data-reveal>
+        <p>For founders, studios and products ready to be remembered.</p>
+        <a class="mail" href="mailto:hello@fieldwork.studio">hello@fieldwork.studio</a>
+      </div>
+      <div class="fcol" data-reveal><h4>Navigation</h4><ul><li><a href="#about">About</a></li><li><a href="#services">Services</a></li><li><a href="#work">Work</a></li><li><a href="#process">Process</a></li><li><a href="#voices">Testimonials</a></li></ul></div>
+      <div class="fcol" data-reveal><h4>Services</h4><ul><li><a href="#contact">Starter Plan</a></li><li><a href="#contact">Studio Plan</a></li><li><a href="#contact">Bespoke Plan</a></li></ul></div>
+      <div class="fcol" data-reveal><h4>Social media</h4>
+        <div class="socials">
+          <a href="#" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".6" fill="currentColor"/></svg></a>
+          <a href="#" aria-label="Dribbble"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M4 9c5 1 11 0 15-4M5 17c4-5 9-6 15-4M9 3.5c3 4 5 10 6 17"/></svg></a>
+          <a href="#" aria-label="LinkedIn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 9h3v11H5zM6.5 3.5a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6zM10 9h3v1.6c.5-.9 1.7-1.9 3.6-1.9 3.2 0 3.9 2 3.9 4.8V20h-3v-5.6c0-1.4-.1-3-1.9-3s-2.2 1.4-2.2 2.9V20H10z"/></svg></a>
+          <a href="#" aria-label="YouTube"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.6 7.2a2.6 2.6 0 0 0-1.8-1.8C18.2 5 12 5 12 5s-6.2 0-7.8.4A2.6 2.6 0 0 0 2.4 7.2 27 27 0 0 0 2 12a27 27 0 0 0 .4 4.8 2.6 2.6 0 0 0 1.8 1.8C5.8 19 12 19 12 19s6.2 0 7.8-.4a2.6 2.6 0 0 0 1.8-1.8A27 27 0 0 0 22 12a27 27 0 0 0-.4-4.8zM10 15V9l5.2 3z"/></svg></a>
+        </div>
+      </div>
+    </div>
+    <div class="footer__info">
+      <div><span>Phone number</span>+1 (503) 555 0148</div>
+      <div><span>Studio address</span>418 Alder Lane, Portland, Oregon 97205</div>
+      <div><span>Monday — Friday</span>09:00 AM — 06:00 PM</div>
+      <button class="totop" id="toTop" aria-label="Back to top"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M7 12V2M2.5 6.5 7 2l4.5 4.5"/></svg></button>
+    </div>
+  </div>
+  <div class="footer__legal"><span>© 2026 Fieldwork Studio. All rights reserved</span><nav><a href="#">Terms &amp; Conditions</a><a href="#">Privacy Policy</a></nav></div>
+</footer>
+
+<div class="cursor" id="cursor" aria-hidden="true">View ↗</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script>
+(() => {
+  const $ = (s, c = document) => c.querySelector(s);
+  const $$ = (s, c = document) => [...c.querySelectorAll(s)];
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+  // Always start at the top so the intro plays from the first frame
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  if (!location.hash) window.scrollTo(0, 0);
+
+  // Hide broken images without layout shift
+  $$('img').forEach(img => img.addEventListener('error', () => img.classList.add('broken')));
+
+  // ---------- Smooth scroll ----------
+  let lenis = null;
+  const hasGsap = typeof gsap !== 'undefined';
+  if (hasGsap) gsap.registerPlugin(ScrollTrigger);
+  if (!reduce && typeof Lenis !== 'undefined') {
+    lenis = new Lenis({ lerp: 0.09, wheelMultiplier: 1, smoothWheel: true });
+    if (hasGsap) {
+      lenis.on('scroll', ScrollTrigger.update);
+      gsap.ticker.add(t => lenis.raf(t * 1000));
+      gsap.ticker.lagSmoothing(0);
+    } else {
+      const raf = t => { lenis.raf(t); requestAnimationFrame(raf); };
+      requestAnimationFrame(raf);
+    }
+  }
+  const scrollTo = (target) => {
+    if (lenis) lenis.scrollTo(target, { duration: 1.6, easing: t => 1 - Math.pow(1 - t, 4) });
+    else (typeof target === 'number' ? window.scrollTo({ top: target, behavior: 'smooth' }) : target.scrollIntoView({ behavior: 'smooth' }));
+  };
+
+  // ---------- Nav: anchors, hide on scroll down, menu ----------
+  const nav = $('#nav'), menu = $('#menu'), burger = $('#burger');
+  const setMenu = open => {
+    menu.classList.toggle('is-open', open);
+    menu.setAttribute('aria-hidden', String(!open));
+    burger.setAttribute('aria-expanded', String(open));
+    if (lenis) open ? lenis.stop() : lenis.start();
+  };
+  burger.addEventListener('click', () => setMenu(true));
+  $('#menuClose').addEventListener('click', () => setMenu(false));
+  addEventListener('keydown', e => { if (e.key === 'Escape') setMenu(false); });
+  $$('a[href^="#"]').forEach(a => a.addEventListener('click', e => {
+    const id = a.getAttribute('href');
+    if (id.length < 2) { e.preventDefault(); return; }
+    const el = $(id); if (!el) return;
+    e.preventDefault();
+    const wasOpen = menu.classList.contains('is-open');
+    setMenu(false);
+    setTimeout(() => scrollTo(id === '#top' ? 0 : el), wasOpen ? 350 : 0);
+  }));
+  $('#toTop').addEventListener('click', () => scrollTo(0));
+
+  let lastY = 0;
+  const onScroll = y => {
+    nav.classList.toggle('is-scrolled', y > 40);
+    nav.classList.toggle('is-hidden', y > 220 && y > lastY && !menu.classList.contains('is-open'));
+    lastY = y;
+  };
+  if (lenis) lenis.on('scroll', ({ scroll }) => onScroll(scroll));
+  else addEventListener('scroll', () => onScroll(scrollY), { passive: true });
+
+  // ---------- Featured card carousel ----------
+  const fImgs = $$('#feature .feature__img img'), fTxt = $$('#feature .feature__txt div'), fBar = $('#featureBar');
+  let fIdx = 0;
+  const FEATURE_MS = 4200;
+  const nextFeature = () => {
+    const prev = fIdx; fIdx = (fIdx + 1) % fImgs.length;
+    fImgs[prev].classList.remove('is-on'); fImgs[fIdx].classList.add('is-on');
+    fTxt[prev].classList.remove('is-on'); fTxt[prev].classList.add('is-out');
+    fTxt[fIdx].classList.remove('is-out'); fTxt[fIdx].classList.add('is-on');
+    setTimeout(() => fTxt[prev].classList.remove('is-out'), 700);
+  };
+  if (hasGsap && !reduce) {
+    const loop = () => gsap.fromTo(fBar, { scaleX: 0 }, { scaleX: 1, duration: FEATURE_MS / 1000, ease: 'none', onComplete: () => { nextFeature(); loop(); } });
+    gsap.delayedCall(1.6, loop);
+  } else setInterval(nextFeature, FEATURE_MS);
+
+  // ---------- Services accordion ----------
+  const svcs = $$('[data-svc]');
+  const openSvc = (svc) => {
+    const willOpen = !svc.classList.contains('is-open');
+    svcs.forEach(s => { s.classList.remove('is-open'); $('.svc__tog', s).setAttribute('aria-expanded', 'false'); });
+    if (!willOpen) return;
+    svc.classList.add('is-open');
+    $('.svc__tog', svc).setAttribute('aria-expanded', 'true');
+    if (hasGsap && !reduce) {
+      gsap.fromTo($$('.svc__pics span', svc), { scale: .6, rotate: -8, opacity: 0 }, { scale: 1, rotate: 0, opacity: 1, duration: 1, ease: 'expo.out', stagger: .08 });
+    }
+    setTimeout(() => hasGsap && ScrollTrigger.refresh(), 850);
+  };
+  svcs.forEach(s => s.addEventListener('click', () => openSvc(s)));
+
+  // ---------- Magnetic buttons ----------
+  if (fine && hasGsap) $$('[data-magnet]').forEach(btn => {
+    const xTo = gsap.quickTo(btn, 'x', { duration: .6, ease: 'expo.out' });
+    const yTo = gsap.quickTo(btn, 'y', { duration: .6, ease: 'expo.out' });
+    btn.addEventListener('mousemove', e => { const r = btn.getBoundingClientRect(); xTo((e.clientX - r.left - r.width / 2) * .3); yTo((e.clientY - r.top - r.height / 2) * .4); });
+    btn.addEventListener('mouseleave', () => { xTo(0); yTo(0); });
+  });
+
+  // ---------- Cursor bubble on project cards ----------
+  const cursor = $('#cursor');
+  if (fine && hasGsap) {
+    const cx = gsap.quickTo(cursor, 'x', { duration: .5, ease: 'expo.out' });
+    const cy = gsap.quickTo(cursor, 'y', { duration: .5, ease: 'expo.out' });
+    addEventListener('mousemove', e => { cx(e.clientX); cy(e.clientY); });
+    $$('[data-proj]').forEach(p => {
+      p.addEventListener('mouseenter', () => cursor.classList.add('is-on'));
+      p.addEventListener('mouseleave', () => cursor.classList.remove('is-on'));
+    });
+  }
+
+  // ---------- Count-up helper ----------
+  const countUp = (el) => {
+    const end = parseFloat(el.dataset.count), dec = +(el.dataset.dec || 0);
+    if (!hasGsap || reduce) { el.textContent = end.toFixed(dec); return; }
+    const o = { v: 0 };
+    gsap.to(o, { v: end, duration: 2, ease: 'power3.out', onUpdate: () => el.textContent = o.v.toFixed(dec) });
+  };
+
+  // Split headings into masked words
+  $$('[data-split]').forEach(h => {
+    const parts = h.innerHTML.split(/(<br\s*\/?>)/i);
+    h.innerHTML = parts.map(p => /<br/i.test(p) ? p : p.trim().split(/\s+/).map(w => `<span class="w"><span>${w}</span></span>`).join(' ')).join('');
+  });
+  // Split the statement into words (keeps the slash as its own token)
+  const st = $('#statement');
+  st.innerHTML = st.innerHTML.replace(/<span class="slash">\/<\/span>/, ' §SLASH§ ').trim().split(/\s+/)
+    .map(w => w === '§SLASH§' ? '<span class="slash">/</span>' : `<span class="word">${w}</span>`).join(' ');
+
+  if (!hasGsap || reduce) {
+    $$('[data-count]').forEach(countUp);
+    $$('.statement .word').forEach(w => w.style.color = 'var(--ink)');
+    return;
+  }
+
+  // ---------- Entrance timeline ----------
+  const heroChars = $$('#heroMark .ch, #heroMark .ch-sup');
+  gsap.set(heroChars, { yPercent: 110 });
+  gsap.set('#hero', { clipPath: 'inset(6% 5% 6% 5% round 28px)' });
+  gsap.set('.hero__media img', { scale: 1.12 });
+  gsap.set('[data-hero-fade]', { y: 24, opacity: 0 });
+  gsap.set('#feature', { x: 60, opacity: 0 });
+  gsap.set('.crew .ln', { scaleX: 0 });
+  gsap.set(nav, { yPercent: -100, opacity: 0 });
+
+  const intro = gsap.timeline({ defaults: { ease: 'expo.out' }, delay: .15 });
+  intro.to('#hero', { clipPath: 'inset(0% 0% 0% 0% round 20px)', duration: 1.5 })
+       .to('.hero__media img', { scale: 1, duration: 2.2 }, 0)
+       .to(heroChars, { yPercent: 0, duration: 1.3, stagger: .045 }, .35)
+       .to(nav, { yPercent: 0, opacity: 1, duration: 1 }, .6)
+       .to('[data-hero-fade]', { y: 0, opacity: 1, duration: 1.1, stagger: .1 }, .8)
+       .to('.crew .ln', { scaleX: 1, duration: 1 }, 1)
+       .to('#feature', { x: 0, opacity: 1, duration: 1.3 }, 1.05);
+
+  // Hero scroll parallax
+  gsap.timeline({ scrollTrigger: { trigger: '#hero', start: 'top top', end: 'bottom top', scrub: true } })
+    .to('#heroMark', { yPercent: -40, opacity: .2, ease: 'none' }, 0)
+    .to('.hero__aside', { y: -60, ease: 'none' }, 0)
+    .to('#feature', { y: -50, ease: 'none' }, 0);
+
+  // ---------- Generic reveals ----------
+  $$('[data-reveal]').forEach(el => gsap.from(el, { y: 36, opacity: 0, duration: 1.2, ease: 'expo.out', scrollTrigger: { trigger: el, start: 'top 90%' } }));
+  $$('[data-split]').forEach(h => gsap.from($$('.w > span', h), { yPercent: 115, duration: 1.2, ease: 'expo.out', stagger: .05, scrollTrigger: { trigger: h, start: 'top 88%' } }));
+
+  // Statement: words fill from grey to ink as you scroll
+  gsap.to('.statement .word', { color: '#121212', stagger: .1, ease: 'none', scrollTrigger: { trigger: '#statement', start: 'top 85%', end: 'bottom 35%', scrub: .6 } });
+
+  // Stats cards + count-up
+  ScrollTrigger.batch('.stats [data-card]', { start: 'top 88%', once: true, onEnter: b => gsap.fromTo(b, { y: 70, opacity: 0 }, { y: 0, opacity: 1, duration: 1.3, ease: 'expo.out', stagger: .1 }) });
+  gsap.set('.stats [data-card]', { opacity: 0 });
+  $$('[data-count]').forEach(el => ScrollTrigger.create({ trigger: el, start: 'top 92%', once: true, onEnter: () => countUp(el) }));
+  gsap.from('.faces__row', { opacity: 0, y: 24, duration: 1.2, ease: 'expo.out', stagger: .12, scrollTrigger: { trigger: '.faces', start: 'top 88%' } });
+  gsap.to('[data-drift]', { yPercent: -8, ease: 'none', scrollTrigger: { trigger: '.stats', start: 'top bottom', end: 'bottom top', scrub: true } });
+
+  // Services: dark panel widens in, rows slide up
+  gsap.fromTo('.services', { clipPath: 'inset(4% 3% 0% 3% round 32px)' }, { clipPath: 'inset(0% 0% 0% 0% round 20px)', ease: 'none', scrollTrigger: { trigger: '.services', start: 'top 95%', end: 'top 35%', scrub: true } });
+  gsap.from('.svc', { y: 50, opacity: 0, duration: 1.1, ease: 'expo.out', stagger: .1, scrollTrigger: { trigger: '#svcList', start: 'top 85%' } });
+  gsap.from('.svc.is-open .svc__pics span', { scale: .6, rotate: -8, opacity: 0, duration: 1.2, ease: 'expo.out', stagger: .1, scrollTrigger: { trigger: '#svcList', start: 'top 80%' } });
+
+  // Projects: stacked sticky cards, image parallax, previous card recedes
+  const projs = $$('[data-proj]');
+  projs.forEach((p, i) => {
+    const img = $('.proj__img img', p);
+    gsap.fromTo(img, { yPercent: -8 }, { yPercent: 0, ease: 'none', scrollTrigger: { trigger: p, start: 'top bottom', end: 'top top', scrub: true } });
+    gsap.from($$('.proj__mark, .proj__title, .proj__bottom .chip, .proj__meta div', p), { y: 30, opacity: 0, duration: 1.1, ease: 'expo.out', stagger: .06, scrollTrigger: { trigger: p, start: 'top 55%' } });
+    const next = projs[i + 1];
+    if (next) {
+      gsap.timeline({ scrollTrigger: { trigger: next, start: 'top bottom', end: 'top top', scrub: true } })
+        .to($('.proj__inner', p), { scale: .9, borderRadius: 28, ease: 'none' }, 0)
+        .to($('.proj__shade', p), { opacity: .55, ease: 'none' }, 0);
+    }
+  });
+
+  // Process: bars slide down into a staircase and grow; matching step lights up
+  const bars = $$('.lane__bar'), steps = $$('.step');
+  const procTl = gsap.timeline({ scrollTrigger: { trigger: '#lanes', start: 'top 80%', end: 'bottom 40%', scrub: .8,
+    onUpdate: self => { const n = Math.min(3, Math.floor(self.progress * 4.2)); steps.forEach((s, i) => s.classList.toggle('is-live', i === n)); } } });
+  bars.forEach((b, i) => {
+    procTl.fromTo(b, { y: () => -b.offsetTop, scaleX: .18 }, { y: 0, scaleX: 1, ease: 'power2.out', duration: 1 }, i * .55);
+  });
+  gsap.from('.step', { y: 40, opacity: 0, duration: 1.1, ease: 'expo.out', stagger: .08, scrollTrigger: { trigger: '#steps', start: 'top 92%' } });
+
+  // Testimonials: columns rise with a slight tilt
+  gsap.set('.vgrid [data-card]', { opacity: 0 });
+  ScrollTrigger.batch('.vgrid [data-card]', { start: 'top 90%', once: true, onEnter: b => gsap.fromTo(b, { y: 80, rotate: 1.5, opacity: 0 }, { y: 0, rotate: 0, opacity: 1, duration: 1.4, ease: 'expo.out', stagger: .12 }) });
+  gsap.from('.band', { y: 40, opacity: 0, duration: 1.2, ease: 'expo.out', scrollTrigger: { trigger: '.band', start: 'top 95%' } });
+
+  // Footer: wordmark letters rise, year line draws
+  const footChars = $$('#footMark .ch, #footMark .ch-sup');
+  gsap.from(footChars, { yPercent: 110, duration: 1.3, ease: 'expo.out', stagger: .045, scrollTrigger: { trigger: '.footer', start: 'top 75%' } });
+  gsap.from('#yearLine', { scaleX: 0, duration: 1.2, ease: 'expo.out', scrollTrigger: { trigger: '.footer', start: 'top 70%' } });
+
+  // Refresh measurements once fonts and images settle
+  document.fonts && document.fonts.ready.then(() => ScrollTrigger.refresh());
+  addEventListener('load', () => {
+    if (!location.hash) { lenis ? lenis.scrollTo(0, { immediate: true }) : window.scrollTo(0, 0); }
+    ScrollTrigger.refresh();
+  });
+})();
+</script>
+</body>
+</html>
+
+````
